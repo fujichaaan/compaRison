@@ -9,7 +9,7 @@ df_example_2 <- read.csv("test2.csv", na.strings = "")
 ui <- fluidPage(
     
     # App title ----
-    titlePanel("QC4LAB - Comparison of two measurements -"),
+    titlePanel("compaRison - Comparison of two measurements -"),
     
     # Select Shiny theme ----
     theme = shinytheme("flatly"),
