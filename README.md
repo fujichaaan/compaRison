@@ -5,7 +5,7 @@ A Shiny app for quality control for two measurements in laboratory settings
 ## 0. Running this App
 Please access the following URL to run this web app:
 
-URL
+https://rf-epidemiol.shinyapps.io/qc4lab/
 
 ## 1. Example plots
 ### Scatter plot with regression lines
