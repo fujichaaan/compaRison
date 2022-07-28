@@ -1,4 +1,4 @@
-# QC4LAB
+# compaRison
 
 A Shiny app for comparisons two measurements in laboratory settings
 
