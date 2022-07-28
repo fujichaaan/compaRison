@@ -1,6 +1,6 @@
 # QC4LAB
 
-A Shiny app for quality control for two measurements in laboratory settings
+A Shiny app for comparisons two measurements in laboratory settings
 
 ## 0. Running this App
 Please access the following URL to run this web app:
