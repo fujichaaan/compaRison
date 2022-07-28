@@ -14,6 +14,7 @@ URL
 ![BAplot](https://user-images.githubusercontent.com/19466700/181629622-d4f44de5-1590-402f-be9a-a6ac603d6804.png)
 
 ## 2. Cautions
+- The column of your input data should be arrigned like Example data: 1) ID, 2) Value for Measurement A, and 3) Value for Measurement B.
 - Passing-Bablok regression will take a some time compared with other two regression models. Please be patience with large N data.
 - File name of PDF output does not assign well.
 - Be sure NOT to flip back min and max of axis limits (X- and Y-), thus be careful to assign them properly.
