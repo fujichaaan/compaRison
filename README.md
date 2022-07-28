@@ -1,5 +1,6 @@
 # qc4lab
-A Shiny app for quality control for two measurements
+
+A Shiny app for quality control for two measurements in laboratory settings
 
 ## 0. Running this App
 Please access the following URL to run this web app:
@@ -14,13 +15,16 @@ URL
 ![BAplot](https://user-images.githubusercontent.com/19466700/181629622-d4f44de5-1590-402f-be9a-a6ac603d6804.png)
 
 ## 2. Cautions
-- The column of your input data should be arrigned like Example data: 1) ID, 2) Value for Measurement A, and 3) Value for Measurement B.
+- The column of your input data should be arrigned like Example data:
+    - Column 1: ID/obs, etc... (Not use for plots)
+    - Column 2: Value for Measurement A
+    - Column 3: Value for Measurement B
 - Passing-Bablok regression will take a some time compared with other two regression models. Please be patience with large N data.
 - File name of PDF output does not assign well.
 - Be sure NOT to flip back min and max of axis limits (X- and Y-), thus be careful to assign them properly.
 
 ## 3. Credits & Info
-This app is developed by Ryosuke Fujii (Fujita Health Univ./Eurac Research). <br>
+This app is developed by <a href="https://scholar.google.com/citations?user=IFFZUGcAAAAJ&hl=en">Ryosuke Fujii</a> (Fujita Health Univ 🇯🇵 / Eurac Research 🇮🇹). <br>
 We thank Mr. Ishihara for inspiring us to develop this web app.
 
 ### Contact info:
