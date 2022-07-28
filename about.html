@@ -1,0 +1,45 @@
+<html>
+	<title>About</title>
+
+<h2>About QC4LAB </h2>
+<p>The QC4LAB web app is a tool for checking agreement and plotting between two different values. Users can explore the data with flexible options. The multiple regression methods can be applied to estimate intercept and slope under different assumptions. The plots (Scatter plot & Bland-Altman plot) can be saved as a PNG file or a PDF file, which can be opened and edited with Adobe Illustrator to allow for fine adjustments of the lay-out.</p>
+
+<h3>1. Contact </h3>
+<p>QC4LAB is created and maintained by Ryosuke Fujii.<br>
+Bug reports and feature requests can be communicated in several ways:</p>
+<ul>
+
+<li>Github: <a href="https://github.com/fujichaaan/qc4lab">fujichaaan/qc4lab</a></li>
+<li>Twitter: <a href="https://twitter.com/RF_epidemiol">@RF_epidemiol</a></li>
+<li>Email: <a href="mailto:rfujii@fujita-hu.ac.jp">rfujii@fujita-hu.ac.jp</a></li>
+</ul>
+
+<h3>2. Source </h3>
+<p>To Be Confirmed</p>
+
+<h3>3. Technical reference </h3>
+
+<h4>3-1. Regression methods </h4>
+All of these methods is a technique to fit a straight line in two-dimensional dataset.
+
+<ul>
+<li>Least square regression: This is simple linear regression where only the response variable (Y) is measured with error. </li>
+<li>Deming regression: This regression method was introduced by Deming WE in 1943. It takes into account for errors on both the exposure (X) and the response variable (Y). </li>
+<li>Passing-Bablok regression: This regression method was introduced by Passing H & Bablok W in 1983. It can be performed without any specific assumptions of both the exposure (X) and the response variable (Y) (distribution & measurement errors). </li>
+
+</ul>
+
+<h4>3-2. Bland-Altman plot </h4>
+This plot is introduced by Bland JM and Altman DG in 1983. This plot is useful to explore the difference between two measurements. <br>
+For example, if you change an instrument for a specific biomarker in laboratory, you need to check the difference of values from instrument A with instrument B.
+
+<h3>4. Acknowledgement</h3>
+<p>Thank you for giving me inspiration of this app from Mr.Yuya Ishihara (Fujita Health University Hospital).</p>
+
+<p>There are several Shiny apps for BA plots and others that have served as a source of inspiration:</br>
+<ul>
+<li><a href="https://github.com/JoachimGoedhart/VolcaNoseR">VolcaNoseR</a></li>
+<li><a href="https://github.com/JoachimGoedhart/BA-plotteR">BA-plotteR</a></li>
+</ul>
+
+</html>
