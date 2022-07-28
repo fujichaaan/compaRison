@@ -1,4 +1,4 @@
-# qc4lab
+# QC4LAB
 
 A Shiny app for quality control for two measurements in laboratory settings
 
