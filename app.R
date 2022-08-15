@@ -42,7 +42,7 @@ ui <- fluidPage(
                              
                              conditionalPanel(
                                  condition = "input.data_input=='3'",
-                                 h4('Make sure the variables you want to compare are in columns 2 and 3')),
+                                 h4('Make sure the variables you want to compare are in 2nd and 3rd column')),
 
                              conditionalPanel(
                                  condition = "input.data_input=='3'",
@@ -55,6 +55,22 @@ ui <- fluidPage(
             
             # Side panel for "Scatter plot" tab ----
             conditionalPanel(condition = "input.tabselected == 2",
+                             h3("Regression line"),
+                             checkboxInput(inputId = "ols",
+                                           label = "Least square method",
+                                           value = TRUE),
+                             checkboxInput(inputId = "deming",
+                                           label = "Deming regression",
+                                           value = TRUE),
+                             checkboxInput(inputId = "W_deming",
+                                           label = "Weighted Deming regression",
+                                           value = FALSE),
+                             checkboxInput(inputId = "pb",
+                                           label = "Passing-Bablok regression (Take some time)",
+                                           value = TRUE),
+                             checkboxInput(inputId = "pb_large",
+                                           label = "Passing-Bablok regression (Approximative P-B regression)",
+                                           value = FALSE),
                              h3("Aesthetics"),
                              sliderInput("pointSize", "Size of the datapoints", 0, 10, 4),  
                              sliderInput("alphaInput", "Visibility of the data", 0, 1, 0.8),
@@ -68,21 +84,26 @@ ui <- fluidPage(
                              sliderInput("label_sz", "Font size of labels", 0, 30, 20),
                              sliderInput("leg_title_sz", "Font size of legend title", 0, 30, 18),
                              sliderInput("leg_label_sz", "Font size of legend text", 0, 30, 16),
-                             h3("Regression line"),
-                             checkboxInput(inputId = "ols",
-                                           label = "Least square method",
-                                           value = TRUE),
-                             checkboxInput(inputId = "deming",
-                                           label = "Deming regression",
-                                           value = TRUE),
-                             checkboxInput(inputId = "pb",
-                                           label = "Passing-Bablok regression (Take some time)",
-                                           value = TRUE)
+                             h3("Change Axis limits"),
+                             checkboxInput(inputId = "change_limits1",
+                                           label = "Change limits of X-axis",
+                                           value = FALSE),
+                             conditionalPanel(
+                                 condition = "input.change_limits1 == true",
+                                 numericInput("xlim_lower1", "X limit (Lower): ", value = NA),
+                                 numericInput("xlim_upper1", "X limit (Upper): ", value = NA)),
+                             checkboxInput(inputId = "change_limits2",
+                                           label = "Change limits of Y-axis",
+                                           value = FALSE),
+                             conditionalPanel(
+                                 condition = "input.change_limits2 == true",
+                                 numericInput("ylim_lower1", "Y limit (Lower): ", value = NA),
+                                 numericInput("ylim_upper1", "Y limit (Upper): ", value = NA))
             ),
             
             # Side panel for "BA plot" tab ----
             conditionalPanel(condition = "input.tabselected == 3",
-                             h3("Select plot:"),
+                             h3("Select plot"),
                              radioButtons("plot_type", "", 
                                           choices = 
                                               list(
@@ -101,20 +122,20 @@ ui <- fluidPage(
                              sliderInput("title_sz1", "Font size of title", 0, 30, 24),
                              sliderInput("label_sz1", "Font size of labels", 0, 30, 20),
                              h3("Change Axis limits"),
-                             checkboxInput(inputId = "change_limits1",
+                             checkboxInput(inputId = "change_limits3",
                                            label = "Change limits of X-axis",
                                            value = FALSE),
                              conditionalPanel(
-                                 condition = "input.change_limits1 == true",
-                                 numericInput("xlim_lower", "X limit (Lower): ", value = NA),
-                                 numericInput("xlim_upper", "X limit (Upper): ", value = NA)),
-                             checkboxInput(inputId = "change_limits2",
+                                 condition = "input.change_limits3 == true",
+                                 numericInput("xlim_lower2", "X limit (Lower): ", value = NA),
+                                 numericInput("xlim_upper2", "X limit (Upper): ", value = NA)),
+                             checkboxInput(inputId = "change_limits4",
                                            label = "Change limits of Y-axis",
                                            value = FALSE),
                              conditionalPanel(
-                                 condition = "input.change_limits2 == true",
-                                 numericInput("ylim_lower", "Y limit (Lower): ", value = NA),
-                                 numericInput("ylim_upper", "Y limit (Upper): ", value = NA))
+                                 condition = "input.change_limits4 == true",
+                                 numericInput("ylim_lower2", "Y limit (Lower): ", value = NA),
+                                 numericInput("ylim_upper2", "Y limit (Upper): ", value = NA))
             ),
         ),
 
@@ -147,8 +168,11 @@ ui <- fluidPage(
                         
                         # Main panel for "BA plot" tab ----
                         tabPanel("BA plot", value = 3,
+                                 h2("Summary for BA plot"),
+                                 br(),
+                                 verbatimTextOutput("loa_summary"),
                                  h2("Bland-Altman plot"),
-                                 h4("Solid line shows the mean difference of two methods; Dotted lines show the 95% confidence intervals of mean difference"),
+                                 h4("Solid line shows the mean difference of two methods; Dotted lines show the limits of agreement (LOA) of mean difference"),
                                  br(),
                                  downloadButton("downloadPlotPDF2", "Download pdf-file"),
                                  downloadButton("downloadPlotPNG2", "Download png-file"),
@@ -191,6 +215,11 @@ server <- function(input, output) {
         data.frame(inFile())
     })
     
+    # Generate a Summary statistics ----
+    output$summary <- renderPrint({
+        summary(inFile()[,c(2,3)])
+    })
+
     # Generate a Scatter plot with regression lines ----
     output$plot1 <- renderPlot(
         
@@ -208,140 +237,420 @@ server <- function(input, output) {
         x <- inFile()[,2]
         y <- inFile()[,3]
         
+        model <- lm(y ~ x); coef <- coef(model)
+        Deming.reg <- mcreg(x, y, method.reg = "Deming")
+        WDeming.reg <- mcreg(x, y, method.reg = "WDeming")
+        PB.reg <- mcreg(x, y, method.reg = "PaBa")
+        PB_large.reg <- mcreg(x, y, method.reg = "PaBaLarge")
+        
         p <- ggplot(inFile(), aes(x = x, y = y)) +
-            geom_point(size = input$pointSize,
-                       alpha = input$alphaInput) +
             theme_bw() +
-            labs(x = input$lab_x, y = input$lab_y) +
+            labs(x = input$lab_x, y = input$lab_y, color = "Regression") +
             scale_x_continuous(limits = c(0, NA)) +
             scale_y_continuous(limits = c(0, NA)) +
             theme(axis.title = element_text(size = input$title_sz),
-                  axis.text = element_text(size = input$label_sz))
+                  axis.text = element_text(size = input$label_sz),
+                  legend.title = element_text(size = input$leg_title_sz),
+                  legend.text = element_text(size = input$leg_label_sz))
         
         if(input$ols == TRUE){
-            model <- lm(x ~ y)
-            coef <- coef(model)
 
-            p <- ggplot(inFile(), aes(x = x, y = y)) +
+            p <- p +
                 geom_abline(aes(intercept = coef[1], slope = coef[2], 
                                 color = "Least square regression"),
                             show.legend = TRUE) +
                 geom_point(size = input$pointSize,
                            alpha = input$alphaInput) +
-                theme_bw() +
-                labs(x = input$lab_x, y = input$lab_y, color = "Regression") +
-                scale_color_manual(values = c("#000000")) +
-                scale_x_continuous(limits = c(0, NA)) +
-                scale_y_continuous(limits = c(0, NA)) +
-                theme(axis.title = element_text(size = input$title_sz),
-                      axis.text = element_text(size = input$label_sz),
-                      legend.title = element_text(size = input$leg_title_sz),
-                      legend.text = element_text(size = input$leg_label_sz))
-            
-        }
-        
-        if(input$deming == TRUE){
-            Deming.reg <- mcreg(x, y, method.reg = "Deming")
-            
-            p <- ggplot(inFile(), aes(x = x, y = y)) +
-                geom_abline(aes(intercept = Deming.reg@para[1], slope = Deming.reg@para[2], 
-                                color = "Deming regression"),
-                            show.legend = TRUE) +
-                geom_point(size = input$pointSize,
-                           alpha = input$alphaInput) +
-                theme_bw() +
-                labs(x = input$lab_x, y = input$lab_y, color = "Regression") +
-                scale_color_manual(values = c("#4169e1")) +
-                scale_x_continuous(limits = c(0, NA)) +
-                scale_y_continuous(limits = c(0, NA)) +
-                theme(axis.title = element_text(size = input$title_sz),
-                      axis.text = element_text(size = input$label_sz),
-                      legend.title = element_text(size = input$leg_title_sz),
-                      legend.text = element_text(size = input$leg_label_sz))
-            
-        }
-        
-        if(input$pb == TRUE){
-            PB.reg <- mcreg(x, y, method.reg = "PaBa")
-            
-            p <- ggplot(inFile(), aes(x = x, y = y)) +
-                geom_abline(aes(intercept = PB.reg@para[1], slope = PB.reg@para[2], 
-                                color = "Passing-Bablok regression"),
-                            show.legend = TRUE) +
-                geom_point(size = input$pointSize,
-                           alpha = input$alphaInput) +
-                theme_bw() +
-                labs(x = input$lab_x, y = input$lab_y, color = "Regression") +
-                scale_color_manual(values = c("#ff4500")) +
-                scale_x_continuous(limits = c(0, NA)) +
-                scale_y_continuous(limits = c(0, NA)) +
-                theme(axis.title = element_text(size = input$title_sz),
-                      axis.text = element_text(size = input$label_sz),
-                      legend.title = element_text(size = input$leg_title_sz),
-                      legend.text = element_text(size = input$leg_label_sz))
-            
-        }
-        
-        if(input$ols == TRUE & input$deming == TRUE){
-            model <- lm(x ~ y)
-            coef <- coef(model)
-            
-            Deming.reg <- mcreg(x, y, method.reg = "Deming")
-            
-            p <- ggplot(inFile(), aes(x = x, y = y)) +
-                geom_abline(aes(intercept = coef[1], slope = coef[2], 
-                                color = "Least square regression"),
-                            show.legend = TRUE) +
-                geom_abline(aes(intercept = Deming.reg@para[1], slope = Deming.reg@para[2], 
-                                color = "Deming regression"),
-                            show.legend = TRUE) +
-                geom_point(size = input$pointSize,
-                           alpha = input$alphaInput) +
-                theme_bw() +
-                labs(x = input$lab_x, y = input$lab_y, color = "Regression") +
-                scale_color_manual(values = c("#4169e1", "#000000")) +
-                scale_x_continuous(limits = c(0, NA)) +
-                scale_y_continuous(limits = c(0, NA)) +
-                theme(axis.title = element_text(size = input$title_sz),
-                      axis.text = element_text(size = input$label_sz),
-                      legend.title = element_text(size = input$leg_title_sz),
-                      legend.text = element_text(size = input$leg_label_sz))
-            
-        }
-        
-        if(input$ols == TRUE & input$pb == TRUE){
-            model <- lm(x ~ y)
-            coef <- coef(model)
-            
-            PB.reg <- mcreg(x, y, method.reg = "PaBa")
-            
-            p <- ggplot(inFile(), aes(x = x, y = y)) +
-                geom_abline(aes(intercept = coef[1], slope = coef[2], 
-                                color = "Least square regression"),
-                            show.legend = TRUE) +
-                geom_abline(aes(intercept = PB.reg@para[1], slope = PB.reg@para[2], 
-                                color = "Passing-Bablok regression"),
-                            show.legend = TRUE) +
-                geom_point(size = input$pointSize,
-                           alpha = input$alphaInput) +
-                theme_bw() +
-                labs(x = input$lab_x, y = input$lab_y, color = "Regression") +
-                scale_color_manual(values = c("#000000", "#ff4500")) +
-                scale_x_continuous(limits = c(0, NA)) +
-                scale_y_continuous(limits = c(0, NA)) +
-                theme(axis.title = element_text(size = input$title_sz),
-                      axis.text = element_text(size = input$label_sz),
-                      legend.title = element_text(size = input$leg_title_sz),
-                      legend.text = element_text(size = input$leg_label_sz))
-            
-        }
-            
-        if(input$deming == TRUE & input$pb == TRUE){
-            Deming.reg <- mcreg(x, y, method.reg = "Deming")
+                scale_color_manual(values = c("#000000"))
 
-            PB.reg <- mcreg(x, y, method.reg = "PaBa")
+            if(input$change_limits1 == TRUE) {
+                
+                p <- p +
+                    scale_x_continuous(limits = c(input$xlim_lower1, input$xlim_upper1), 
+                                       breaks = seq(input$xlim_lower1, input$xlim_upper1, 
+                                                    (input$xlim_upper1 - input$xlim_lower1) / 5))
+            }
             
-            p <- ggplot(inFile(), aes(x = x, y = y)) +
+            if(input$change_limits2 == TRUE) {
+                
+                p <- p +
+                    scale_y_continuous(limits = c(input$ylim_lower1, input$ylim_upper1), 
+                                       breaks = seq(input$ylim_lower1, input$ylim_upper1, 
+                                                    (input$ylim_upper1 - input$ylim_lower1) / 5))
+            }
+            
+            if(input$change_limits1 == TRUE & input$change_limits2 == TRUE) {
+                
+                p <- p +
+                    scale_x_continuous(limits = c(input$xlim_lower1, input$xlim_upper1), 
+                                       breaks = seq(input$xlim_lower1, input$xlim_upper1, 
+                                                    (input$xlim_upper1 - input$xlim_lower1) / 5)) +
+                    scale_y_continuous(limits = c(input$ylim_lower1, input$ylim_upper1), 
+                                       breaks = seq(input$ylim_lower1, input$ylim_upper1, 
+                                                    (input$ylim_upper1 - input$ylim_lower1) / 5))
+            }
+        }
+        
+        if(input$deming == TRUE) {
+            
+            p <- p +
+                geom_abline(aes(intercept = Deming.reg@para[1], slope = Deming.reg@para[2], 
+                                color = "Deming regression"),
+                            show.legend = TRUE) +
+                geom_point(size = input$pointSize,
+                           alpha = input$alphaInput) +
+                scale_color_manual(values = c("#BC3C29B2"))
+            
+            if(input$change_limits1 == TRUE) {
+                
+                p <- p +
+                    scale_x_continuous(limits = c(input$xlim_lower1, input$xlim_upper1), 
+                                       breaks = seq(input$xlim_lower1, input$xlim_upper1, 
+                                                    (input$xlim_upper1 - input$xlim_lower1) / 5))
+            }
+            
+            if(input$change_limits2 == TRUE) {
+                
+                p <- p +
+                    scale_y_continuous(limits = c(input$ylim_lower1, input$ylim_upper1), 
+                                       breaks = seq(input$ylim_lower1, input$ylim_upper1, 
+                                                    (input$ylim_upper1 - input$ylim_lower1) / 5))
+            }
+            
+            if(input$change_limits1 == TRUE & input$change_limits2 == TRUE) {
+                
+                p <- p +
+                    scale_x_continuous(limits = c(input$xlim_lower1, input$xlim_upper1), 
+                                       breaks = seq(input$xlim_lower1, input$xlim_upper1, 
+                                                    (input$xlim_upper1 - input$xlim_lower1) / 5)) +
+                    scale_y_continuous(limits = c(input$ylim_lower1, input$ylim_upper1), 
+                                       breaks = seq(input$ylim_lower1, input$ylim_upper1, 
+                                                    (input$ylim_upper1 - input$ylim_lower1) / 5))
+            }
+        }
+        
+        if(input$W_deming == TRUE) {
+            
+            p <- p +
+                geom_abline(aes(intercept = WDeming.reg@para[1], slope = WDeming.reg@para[2], 
+                                color = "Weighted Deming regression"),
+                            show.legend = TRUE) +
+                geom_point(size = input$pointSize,
+                           alpha = input$alphaInput) +
+                scale_color_manual(values = c("#E18727B2"))
+            
+            if(input$change_limits1 == TRUE) {
+                
+                p <- p +
+                    scale_x_continuous(limits = c(input$xlim_lower1, input$xlim_upper1), 
+                                       breaks = seq(input$xlim_lower1, input$xlim_upper1, 
+                                                    (input$xlim_upper1 - input$xlim_lower1) / 5))
+            }
+            
+            if(input$change_limits2 == TRUE) {
+                
+                p <- p +
+                    scale_y_continuous(limits = c(input$ylim_lower1, input$ylim_upper1), 
+                                       breaks = seq(input$ylim_lower1, input$ylim_upper1, 
+                                                    (input$ylim_upper1 - input$ylim_lower1) / 5))
+            }
+            
+            if(input$change_limits1 == TRUE & input$change_limits2 == TRUE) {
+                
+                p <- p +
+                    scale_x_continuous(limits = c(input$xlim_lower1, input$xlim_upper1), 
+                                       breaks = seq(input$xlim_lower1, input$xlim_upper1, 
+                                                    (input$xlim_upper1 - input$xlim_lower1) / 5)) +
+                    scale_y_continuous(limits = c(input$ylim_lower1, input$ylim_upper1), 
+                                       breaks = seq(input$ylim_lower1, input$ylim_upper1, 
+                                                    (input$ylim_upper1 - input$ylim_lower1) / 5))
+            }
+        }
+        
+        if(input$pb == TRUE) {
+            
+            p <- p +
+                geom_abline(aes(intercept = PB.reg@para[1], slope = PB.reg@para[2], 
+                                color = "Passing-Bablok regression"),
+                            show.legend = TRUE) +
+                geom_point(size = input$pointSize,
+                           alpha = input$alphaInput) +
+                scale_color_manual(values = c("#0072B5B2"))
+            
+            if(input$change_limits1 == TRUE) {
+                
+                p <- p +
+                    scale_x_continuous(limits = c(input$xlim_lower1, input$xlim_upper1), 
+                                       breaks = seq(input$xlim_lower1, input$xlim_upper1, 
+                                                    (input$xlim_upper1 - input$xlim_lower1) / 5))
+            }
+            
+            if(input$change_limits2 == TRUE) {
+                
+                p <- p +
+                    scale_y_continuous(limits = c(input$ylim_lower1, input$ylim_upper1), 
+                                       breaks = seq(input$ylim_lower1, input$ylim_upper1, 
+                                                    (input$ylim_upper1 - input$ylim_lower1) / 5))
+            }
+            
+            if(input$change_limits1 == TRUE & input$change_limits2 == TRUE) {
+                
+                p <- p +
+                    scale_x_continuous(limits = c(input$xlim_lower1, input$xlim_upper1), 
+                                       breaks = seq(input$xlim_lower1, input$xlim_upper1, 
+                                                    (input$xlim_upper1 - input$xlim_lower1) / 5)) +
+                    scale_y_continuous(limits = c(input$ylim_lower1, input$ylim_upper1), 
+                                       breaks = seq(input$ylim_lower1, input$ylim_upper1, 
+                                                    (input$ylim_upper1 - input$ylim_lower1) / 5))
+            }
+        }
+        
+        if(input$pb_large == TRUE) {
+            
+            p <- p +
+                geom_abline(aes(intercept = PB_large.reg@para[1], slope = PB_large.reg@para[2], 
+                                color = "Passing-Bablok regression (large)"),
+                            show.legend = TRUE) +
+                geom_point(size = input$pointSize,
+                           alpha = input$alphaInput) +
+                scale_color_manual(values = c("#20854EB2"))
+            
+            if(input$change_limits1 == TRUE) {
+                
+                p <- p +
+                    scale_x_continuous(limits = c(input$xlim_lower1, input$xlim_upper1), 
+                                       breaks = seq(input$xlim_lower1, input$xlim_upper1, 
+                                                    (input$xlim_upper1 - input$xlim_lower1) / 5))
+            }
+            
+            if(input$change_limits2 == TRUE) {
+                
+                p <- p +
+                    scale_y_continuous(limits = c(input$ylim_lower1, input$ylim_upper1), 
+                                       breaks = seq(input$ylim_lower1, input$ylim_upper1, 
+                                                    (input$ylim_upper1 - input$ylim_lower1) / 5))
+            }
+            
+            if(input$change_limits1 == TRUE & input$change_limits2 == TRUE) {
+                
+                p <- p +
+                    scale_x_continuous(limits = c(input$xlim_lower1, input$xlim_upper1), 
+                                       breaks = seq(input$xlim_lower1, input$xlim_upper1, 
+                                                    (input$xlim_upper1 - input$xlim_lower1) / 5)) +
+                    scale_y_continuous(limits = c(input$ylim_lower1, input$ylim_upper1), 
+                                       breaks = seq(input$ylim_lower1, input$ylim_upper1, 
+                                                    (input$ylim_upper1 - input$ylim_lower1) / 5))
+            }
+        }
+        
+        if(input$ols == TRUE & input$deming == TRUE) {
+
+            p <- p +
+                geom_abline(aes(intercept = coef[1], slope = coef[2], 
+                                color = "Least square regression"),
+                            show.legend = TRUE) +
+                geom_abline(aes(intercept = Deming.reg@para[1], slope = Deming.reg@para[2], 
+                                color = "Deming regression"),
+                            show.legend = TRUE) +
+                geom_point(size = input$pointSize,
+                           alpha = input$alphaInput) +
+                scale_color_manual(values = c("#BC3C29B2", "#000000"))
+            
+            if(input$change_limits1 == TRUE) {
+                
+                p <- p +
+                    scale_x_continuous(limits = c(input$xlim_lower1, input$xlim_upper1), 
+                                       breaks = seq(input$xlim_lower1, input$xlim_upper1, 
+                                                    (input$xlim_upper1 - input$xlim_lower1) / 5))
+            }
+            
+            if(input$change_limits2 == TRUE) {
+                
+                p <- p +
+                    scale_y_continuous(limits = c(input$ylim_lower1, input$ylim_upper1), 
+                                       breaks = seq(input$ylim_lower1, input$ylim_upper1, 
+                                                    (input$ylim_upper1 - input$ylim_lower1) / 5))
+            }
+            
+            if(input$change_limits1 == TRUE & input$change_limits2 == TRUE) {
+                
+                p <- p +
+                    scale_x_continuous(limits = c(input$xlim_lower1, input$xlim_upper1), 
+                                       breaks = seq(input$xlim_lower1, input$xlim_upper1, 
+                                                    (input$xlim_upper1 - input$xlim_lower1) / 5)) +
+                    scale_y_continuous(limits = c(input$ylim_lower1, input$ylim_upper1), 
+                                       breaks = seq(input$ylim_lower1, input$ylim_upper1, 
+                                                    (input$ylim_upper1 - input$ylim_lower1) / 5))
+            }
+        }
+        
+        if(input$ols == TRUE & input$W_deming == TRUE) {
+
+            p <- p +
+                geom_abline(aes(intercept = coef[1], slope = coef[2], 
+                                color = "Least square regression"),
+                            show.legend = TRUE) +
+                geom_abline(aes(intercept = WDeming.reg@para[1], slope = WDeming.reg@para[2], 
+                                color = "Weighted Deming regression"),
+                            show.legend = TRUE) +
+                geom_point(size = input$pointSize,
+                           alpha = input$alphaInput) +
+                scale_color_manual(values = c("#000000", "#E18727B2"))
+            
+            if(input$change_limits1 == TRUE) {
+                
+                p <- p +
+                    scale_x_continuous(limits = c(input$xlim_lower1, input$xlim_upper1), 
+                                       breaks = seq(input$xlim_lower1, input$xlim_upper1, 
+                                                    (input$xlim_upper1 - input$xlim_lower1) / 5))
+            }
+            
+            if(input$change_limits2 == TRUE) {
+                
+                p <- p +
+                    scale_y_continuous(limits = c(input$ylim_lower1, input$ylim_upper1), 
+                                       breaks = seq(input$ylim_lower1, input$ylim_upper1, 
+                                                    (input$ylim_upper1 - input$ylim_lower1) / 5))
+            }
+            
+            if(input$change_limits1 == TRUE & input$change_limits2 == TRUE) {
+                
+                p <- p +
+                    scale_x_continuous(limits = c(input$xlim_lower1, input$xlim_upper1), 
+                                       breaks = seq(input$xlim_lower1, input$xlim_upper1, 
+                                                    (input$xlim_upper1 - input$xlim_lower1) / 5)) +
+                    scale_y_continuous(limits = c(input$ylim_lower1, input$ylim_upper1), 
+                                       breaks = seq(input$ylim_lower1, input$ylim_upper1, 
+                                                    (input$ylim_upper1 - input$ylim_lower1) / 5))
+            }
+        }
+        
+        if(input$ols == TRUE & input$pb == TRUE) {
+
+            p <- p +
+                geom_abline(aes(intercept = coef[1], slope = coef[2], 
+                                color = "Least square regression"),
+                            show.legend = TRUE) +
+                geom_abline(aes(intercept = PB.reg@para[1], slope = PB.reg@para[2], 
+                                color = "Passing-Bablok regression"),
+                            show.legend = TRUE) +
+                geom_point(size = input$pointSize,
+                           alpha = input$alphaInput) +
+                scale_color_manual(values = c("#000000", "#0072B5B2"))
+            
+            if(input$change_limits1 == TRUE) {
+                
+                p <- p +
+                    scale_x_continuous(limits = c(input$xlim_lower1, input$xlim_upper1), 
+                                       breaks = seq(input$xlim_lower1, input$xlim_upper1, 
+                                                    (input$xlim_upper1 - input$xlim_lower1) / 5))
+            }
+            
+            if(input$change_limits2 == TRUE) {
+                
+                p <- p +
+                    scale_y_continuous(limits = c(input$ylim_lower1, input$ylim_upper1), 
+                                       breaks = seq(input$ylim_lower1, input$ylim_upper1, 
+                                                    (input$ylim_upper1 - input$ylim_lower1) / 5))
+            }
+            
+            if(input$change_limits1 == TRUE & input$change_limits2 == TRUE) {
+                
+                p <- p +
+                    scale_x_continuous(limits = c(input$xlim_lower1, input$xlim_upper1), 
+                                       breaks = seq(input$xlim_lower1, input$xlim_upper1, 
+                                                    (input$xlim_upper1 - input$xlim_lower1) / 5)) +
+                    scale_y_continuous(limits = c(input$ylim_lower1, input$ylim_upper1), 
+                                       breaks = seq(input$ylim_lower1, input$ylim_upper1, 
+                                                    (input$ylim_upper1 - input$ylim_lower1) / 5))
+            }
+        }
+        
+        if(input$ols == TRUE & input$pb_large == TRUE) {
+
+            p <- p +
+                geom_abline(aes(intercept = coef[1], slope = coef[2], 
+                                color = "Least square regression"),
+                            show.legend = TRUE) +
+                geom_abline(aes(intercept = PB_large.reg@para[1], slope = PB_large.reg@para[2], 
+                                color = "Passing-Bablok regression (large)"),
+                            show.legend = TRUE) +
+                geom_point(size = input$pointSize,
+                           alpha = input$alphaInput) +
+                scale_color_manual(values = c("#000000", "#20854EB2"))
+            
+            if(input$change_limits1 == TRUE) {
+                
+                p <- p +
+                    scale_x_continuous(limits = c(input$xlim_lower1, input$xlim_upper1), 
+                                       breaks = seq(input$xlim_lower1, input$xlim_upper1, 
+                                                    (input$xlim_upper1 - input$xlim_lower1) / 5))
+            }
+            
+            if(input$change_limits2 == TRUE) {
+                
+                p <- p +
+                    scale_y_continuous(limits = c(input$ylim_lower1, input$ylim_upper1), 
+                                       breaks = seq(input$ylim_lower1, input$ylim_upper1, 
+                                                    (input$ylim_upper1 - input$ylim_lower1) / 5))
+            }
+            
+            if(input$change_limits1 == TRUE & input$change_limits2 == TRUE) {
+                
+                p <- p +
+                    scale_x_continuous(limits = c(input$xlim_lower1, input$xlim_upper1), 
+                                       breaks = seq(input$xlim_lower1, input$xlim_upper1, 
+                                                    (input$xlim_upper1 - input$xlim_lower1) / 5)) +
+                    scale_y_continuous(limits = c(input$ylim_lower1, input$ylim_upper1), 
+                                       breaks = seq(input$ylim_lower1, input$ylim_upper1, 
+                                                    (input$ylim_upper1 - input$ylim_lower1) / 5))
+            }
+        }
+        
+        if(input$deming == TRUE & input$W_deming == TRUE) {
+
+            p <- p +
+                geom_abline(aes(intercept = Deming.reg@para[1], slope = Deming.reg@para[2], 
+                                color = "Deming regression"),
+                            show.legend = TRUE) +
+                geom_abline(aes(intercept = WDeming.reg@para[1], slope = WDeming.reg@para[2], 
+                                color = "Weighted Deming regression"),
+                            show.legend = TRUE) +
+                geom_point(size = input$pointSize,
+                           alpha = input$alphaInput) +
+                scale_color_manual(values = c("#BC3C29B2", "#E18727B2"))
+            
+            if(input$change_limits1 == TRUE) {
+                
+                p <- p +
+                    scale_x_continuous(limits = c(input$xlim_lower1, input$xlim_upper1), 
+                                       breaks = seq(input$xlim_lower1, input$xlim_upper1, 
+                                                    (input$xlim_upper1 - input$xlim_lower1) / 5))
+            }
+            
+            if(input$change_limits2 == TRUE) {
+                
+                p <- p +
+                    scale_y_continuous(limits = c(input$ylim_lower1, input$ylim_upper1), 
+                                       breaks = seq(input$ylim_lower1, input$ylim_upper1, 
+                                                    (input$ylim_upper1 - input$ylim_lower1) / 5))
+            }
+            
+            if(input$change_limits1 == TRUE & input$change_limits2 == TRUE) {
+                
+                p <- p +
+                    scale_x_continuous(limits = c(input$xlim_lower1, input$xlim_upper1), 
+                                       breaks = seq(input$xlim_lower1, input$xlim_upper1, 
+                                                    (input$xlim_upper1 - input$xlim_lower1) / 5)) +
+                    scale_y_continuous(limits = c(input$ylim_lower1, input$ylim_upper1), 
+                                       breaks = seq(input$ylim_lower1, input$ylim_upper1, 
+                                                    (input$ylim_upper1 - input$ylim_lower1) / 5))
+            }
+        }
+        
+        if(input$deming == TRUE & input$pb == TRUE) {
+
+            p <- p +
                 geom_abline(aes(intercept = Deming.reg@para[1], slope = Deming.reg@para[2], 
                                 color = "Deming regression"),
                             show.legend = TRUE) +
@@ -350,27 +659,247 @@ server <- function(input, output) {
                             show.legend = TRUE) +
                 geom_point(size = input$pointSize,
                            alpha = input$alphaInput) +
-                theme_bw() +
-                labs(x = input$lab_x, y = input$lab_y, color = "Regression") +
-                scale_color_manual(values = c("#000000", "#ff4500")) +
-                scale_x_continuous(limits = c(0, NA)) +
-                scale_y_continuous(limits = c(0, NA)) +
-                theme(axis.title = element_text(size = input$title_sz),
-                      axis.text = element_text(size = input$label_sz),
-                      legend.title = element_text(size = input$leg_title_sz),
-                      legend.text = element_text(size = input$leg_label_sz))
+                scale_color_manual(values = c("#BC3C29B2", "#0072B5B2"))
             
+            if(input$change_limits1 == TRUE) {
+                
+                p <- p +
+                    scale_x_continuous(limits = c(input$xlim_lower1, input$xlim_upper1), 
+                                       breaks = seq(input$xlim_lower1, input$xlim_upper1, 
+                                                    (input$xlim_upper1 - input$xlim_lower1) / 5))
+            }
+            
+            if(input$change_limits2 == TRUE) {
+                
+                p <- p +
+                    scale_y_continuous(limits = c(input$ylim_lower1, input$ylim_upper1), 
+                                       breaks = seq(input$ylim_lower1, input$ylim_upper1, 
+                                                    (input$ylim_upper1 - input$ylim_lower1) / 5))
+            }
+            
+            if(input$change_limits1 == TRUE & input$change_limits2 == TRUE) {
+                
+                p <- p +
+                    scale_x_continuous(limits = c(input$xlim_lower1, input$xlim_upper1), 
+                                       breaks = seq(input$xlim_lower1, input$xlim_upper1, 
+                                                    (input$xlim_upper1 - input$xlim_lower1) / 5)) +
+                    scale_y_continuous(limits = c(input$ylim_lower1, input$ylim_upper1), 
+                                       breaks = seq(input$ylim_lower1, input$ylim_upper1, 
+                                                    (input$ylim_upper1 - input$ylim_lower1) / 5))
+            }
         }
         
-        if(input$ols == TRUE & input$deming == TRUE & input$pb == TRUE){
-            model <- lm(x ~ y)
-            coef <- coef(model)
+        if(input$deming == TRUE & input$pb_large == TRUE) {
+
+            p <- p +
+                geom_abline(aes(intercept = Deming.reg@para[1], slope = Deming.reg@para[2], 
+                                color = "Deming regression"),
+                            show.legend = TRUE) +
+                geom_abline(aes(intercept = PB_large.reg@para[1], slope = PB_large.reg@para[2], 
+                                color = "Passing-Bablok regression (large)"),
+                            show.legend = TRUE) +
+                geom_point(size = input$pointSize,
+                           alpha = input$alphaInput) +
+                scale_color_manual(values = c("#BC3C29B2", "#20854EB2"))
             
-            Deming.reg <- mcreg(x, y, method.reg = "Deming")
+            if(input$change_limits1 == TRUE) {
+                
+                p <- p +
+                    scale_x_continuous(limits = c(input$xlim_lower1, input$xlim_upper1), 
+                                       breaks = seq(input$xlim_lower1, input$xlim_upper1, 
+                                                    (input$xlim_upper1 - input$xlim_lower1) / 5))
+            }
             
-            PB.reg <- mcreg(x, y, method.reg = "PaBa")
+            if(input$change_limits2 == TRUE) {
+                
+                p <- p +
+                    scale_y_continuous(limits = c(input$ylim_lower1, input$ylim_upper1), 
+                                       breaks = seq(input$ylim_lower1, input$ylim_upper1, 
+                                                    (input$ylim_upper1 - input$ylim_lower1) / 5))
+            }
             
-            p <- ggplot(inFile(), aes(x = x, y = y)) +
+            if(input$change_limits1 == TRUE & input$change_limits2 == TRUE) {
+                
+                p <- p +
+                    scale_x_continuous(limits = c(input$xlim_lower1, input$xlim_upper1), 
+                                       breaks = seq(input$xlim_lower1, input$xlim_upper1, 
+                                                    (input$xlim_upper1 - input$xlim_lower1) / 5)) +
+                    scale_y_continuous(limits = c(input$ylim_lower1, input$ylim_upper1), 
+                                       breaks = seq(input$ylim_lower1, input$ylim_upper1, 
+                                                    (input$ylim_upper1 - input$ylim_lower1) / 5))
+            }
+        }
+        
+        if(input$W_deming == TRUE & input$pb == TRUE) {
+
+            p <- p +
+                geom_abline(aes(intercept = WDeming.reg@para[1], slope = WDeming.reg@para[2], 
+                                color = "Weighted Deming regression"),
+                            show.legend = TRUE) +
+                geom_abline(aes(intercept = PB.reg@para[1], slope = PB.reg@para[2], 
+                                color = "Passing-Bablok regression"),
+                            show.legend = TRUE) +
+                geom_point(size = input$pointSize,
+                           alpha = input$alphaInput) +
+                scale_color_manual(values = c("#0072B5B2", "#E18727B2"))
+            
+            if(input$change_limits1 == TRUE) {
+                
+                p <- p +
+                    scale_x_continuous(limits = c(input$xlim_lower1, input$xlim_upper1), 
+                                       breaks = seq(input$xlim_lower1, input$xlim_upper1, 
+                                                    (input$xlim_upper1 - input$xlim_lower1) / 5))
+            }
+            
+            if(input$change_limits2 == TRUE) {
+                
+                p <- p +
+                    scale_y_continuous(limits = c(input$ylim_lower1, input$ylim_upper1), 
+                                       breaks = seq(input$ylim_lower1, input$ylim_upper1, 
+                                                    (input$ylim_upper1 - input$ylim_lower1) / 5))
+            }
+            
+            if(input$change_limits1 == TRUE & input$change_limits2 == TRUE) {
+                
+                p <- p +
+                    scale_x_continuous(limits = c(input$xlim_lower1, input$xlim_upper1), 
+                                       breaks = seq(input$xlim_lower1, input$xlim_upper1, 
+                                                    (input$xlim_upper1 - input$xlim_lower1) / 5)) +
+                    scale_y_continuous(limits = c(input$ylim_lower1, input$ylim_upper1), 
+                                       breaks = seq(input$ylim_lower1, input$ylim_upper1, 
+                                                    (input$ylim_upper1 - input$ylim_lower1) / 5))
+            }
+        }
+        
+        if(input$W_deming == TRUE & input$pb_large == TRUE) {
+
+            p <- p +
+                geom_abline(aes(intercept = WDeming.reg@para[1], slope = WDeming.reg@para[2], 
+                                color = "Weighted Deming regression"),
+                            show.legend = TRUE) +
+                geom_abline(aes(intercept = PB_large.reg@para[1], slope = PB_large.reg@para[2], 
+                                color = "Passing-Bablok regression (large)"),
+                            show.legend = TRUE) +
+                geom_point(size = input$pointSize,
+                           alpha = input$alphaInput) +
+                scale_color_manual(values = c("#20854EB2", "#E18727B2"))
+            
+            if(input$change_limits1 == TRUE) {
+                
+                p <- p +
+                    scale_x_continuous(limits = c(input$xlim_lower1, input$xlim_upper1), 
+                                       breaks = seq(input$xlim_lower1, input$xlim_upper1, 
+                                                    (input$xlim_upper1 - input$xlim_lower1) / 5))
+            }
+            
+            if(input$change_limits2 == TRUE) {
+                
+                p <- p +
+                    scale_y_continuous(limits = c(input$ylim_lower1, input$ylim_upper1), 
+                                       breaks = seq(input$ylim_lower1, input$ylim_upper1, 
+                                                    (input$ylim_upper1 - input$ylim_lower1) / 5))
+            }
+            
+            if(input$change_limits1 == TRUE & input$change_limits2 == TRUE) {
+                
+                p <- p +
+                    scale_x_continuous(limits = c(input$xlim_lower1, input$xlim_upper1), 
+                                       breaks = seq(input$xlim_lower1, input$xlim_upper1, 
+                                                    (input$xlim_upper1 - input$xlim_lower1) / 5)) +
+                    scale_y_continuous(limits = c(input$ylim_lower1, input$ylim_upper1), 
+                                       breaks = seq(input$ylim_lower1, input$ylim_upper1, 
+                                                    (input$ylim_upper1 - input$ylim_lower1) / 5))
+            }
+        }
+        
+        if(input$pb == TRUE & input$pb_large == TRUE) {
+
+            p <- p +
+                geom_abline(aes(intercept = PB.reg@para[1], slope = PB.reg@para[2], 
+                                color = "Passing-Bablok regression"),
+                            show.legend = TRUE) +
+                geom_abline(aes(intercept = PB_large.reg@para[1], slope = PB_large.reg@para[2], 
+                                color = "Passing-Bablok regression (large)"),
+                            show.legend = TRUE) +
+                geom_point(size = input$pointSize,
+                           alpha = input$alphaInput) +
+                scale_color_manual(values = c("#0072B5B2", "#20854EB2"))
+            
+            if(input$change_limits1 == TRUE) {
+                
+                p <- p +
+                    scale_x_continuous(limits = c(input$xlim_lower1, input$xlim_upper1), 
+                                       breaks = seq(input$xlim_lower1, input$xlim_upper1, 
+                                                    (input$xlim_upper1 - input$xlim_lower1) / 5))
+            }
+            
+            if(input$change_limits2 == TRUE) {
+                
+                p <- p +
+                    scale_y_continuous(limits = c(input$ylim_lower1, input$ylim_upper1), 
+                                       breaks = seq(input$ylim_lower1, input$ylim_upper1, 
+                                                    (input$ylim_upper1 - input$ylim_lower1) / 5))
+            }
+            
+            if(input$change_limits1 == TRUE & input$change_limits2 == TRUE) {
+                
+                p <- p +
+                    scale_x_continuous(limits = c(input$xlim_lower1, input$xlim_upper1), 
+                                       breaks = seq(input$xlim_lower1, input$xlim_upper1, 
+                                                    (input$xlim_upper1 - input$xlim_lower1) / 5)) +
+                    scale_y_continuous(limits = c(input$ylim_lower1, input$ylim_upper1), 
+                                       breaks = seq(input$ylim_lower1, input$ylim_upper1, 
+                                                    (input$ylim_upper1 - input$ylim_lower1) / 5))
+            }
+        }
+        
+        if(input$ols == TRUE & input$deming == TRUE & input$W_deming == TRUE) {
+
+            p <- p +
+                geom_abline(aes(intercept = coef[1], slope = coef[2], 
+                                color = "Least square regression"),
+                            show.legend = TRUE) +
+                geom_abline(aes(intercept = Deming.reg@para[1], slope = Deming.reg@para[2], 
+                                color = "Deming regression"),
+                            show.legend = TRUE) +
+                geom_abline(aes(intercept = WDeming.reg@para[1], slope = WDeming.reg@para[2], 
+                                color = "Weighted Deming regression"),
+                            show.legend = TRUE) +
+                geom_point(size = input$pointSize,
+                           alpha = input$alphaInput) +
+                scale_color_manual(values = c("#BC3C29B2", "#000000", "#E18727B2"))
+            
+            if(input$change_limits1 == TRUE) {
+                
+                p <- p +
+                    scale_x_continuous(limits = c(input$xlim_lower1, input$xlim_upper1), 
+                                       breaks = seq(input$xlim_lower1, input$xlim_upper1, 
+                                                    (input$xlim_upper1 - input$xlim_lower1) / 5))
+            }
+            
+            if(input$change_limits2 == TRUE) {
+                
+                p <- p +
+                    scale_y_continuous(limits = c(input$ylim_lower1, input$ylim_upper1), 
+                                       breaks = seq(input$ylim_lower1, input$ylim_upper1, 
+                                                    (input$ylim_upper1 - input$ylim_lower1) / 5))
+            }
+            
+            if(input$change_limits1 == TRUE & input$change_limits2 == TRUE) {
+                
+                p <- p +
+                    scale_x_continuous(limits = c(input$xlim_lower1, input$xlim_upper1), 
+                                       breaks = seq(input$xlim_lower1, input$xlim_upper1, 
+                                                    (input$xlim_upper1 - input$xlim_lower1) / 5)) +
+                    scale_y_continuous(limits = c(input$ylim_lower1, input$ylim_upper1), 
+                                       breaks = seq(input$ylim_lower1, input$ylim_upper1, 
+                                                    (input$ylim_upper1 - input$ylim_lower1) / 5))
+            }
+        }
+        
+        if(input$ols == TRUE & input$deming == TRUE & input$pb == TRUE) {
+
+            p <- p +
                 geom_abline(aes(intercept = coef[1], slope = coef[2], 
                                 color = "Least square regression"),
                             show.legend = TRUE) +
@@ -382,22 +911,678 @@ server <- function(input, output) {
                             show.legend = TRUE) +
                 geom_point(size = input$pointSize,
                            alpha = input$alphaInput) +
-                theme_bw() +
-                labs(x = input$lab_x, y = input$lab_y, color = "Regression") +
-                scale_color_manual(values = c("#4169e1", "#000000", "#ff4500")) +
-                scale_x_continuous(limits = c(0, NA)) +
-                scale_y_continuous(limits = c(0, NA)) +
-                theme(axis.title = element_text(size = input$title_sz),
-                      axis.text = element_text(size = input$label_sz),
-                      legend.title = element_text(size = input$leg_title_sz),
-                      legend.text = element_text(size = input$leg_label_sz))
+                scale_color_manual(values = c("#BC3C29B2", "#000000", "#0072B5B2"))
             
+            if(input$change_limits1 == TRUE) {
+                
+                p <- p +
+                    scale_x_continuous(limits = c(input$xlim_lower1, input$xlim_upper1), 
+                                       breaks = seq(input$xlim_lower1, input$xlim_upper1, 
+                                                    (input$xlim_upper1 - input$xlim_lower1) / 5))
+            }
+            
+            if(input$change_limits2 == TRUE) {
+                
+                p <- p +
+                    scale_y_continuous(limits = c(input$ylim_lower1, input$ylim_upper1), 
+                                       breaks = seq(input$ylim_lower1, input$ylim_upper1, 
+                                                    (input$ylim_upper1 - input$ylim_lower1) / 5))
+            }
+            
+            if(input$change_limits1 == TRUE & input$change_limits2 == TRUE) {
+                
+                p <- p +
+                    scale_x_continuous(limits = c(input$xlim_lower1, input$xlim_upper1), 
+                                       breaks = seq(input$xlim_lower1, input$xlim_upper1, 
+                                                    (input$xlim_upper1 - input$xlim_lower1) / 5)) +
+                    scale_y_continuous(limits = c(input$ylim_lower1, input$ylim_upper1), 
+                                       breaks = seq(input$ylim_lower1, input$ylim_upper1, 
+                                                    (input$ylim_upper1 - input$ylim_lower1) / 5))
+            }
+        }
+        
+        if(input$ols == TRUE & input$deming == TRUE & input$pb_large == TRUE) {
+            
+            p <- p +
+                geom_abline(aes(intercept = coef[1], slope = coef[2], 
+                                color = "Least square regression"),
+                            show.legend = TRUE) +
+                geom_abline(aes(intercept = Deming.reg@para[1], slope = Deming.reg@para[2], 
+                                color = "Deming regression"),
+                            show.legend = TRUE) +
+                geom_abline(aes(intercept = PB_large.reg@para[1], slope = PB_large.reg@para[2], 
+                                color = "Passing-Bablok regression (large)"),
+                            show.legend = TRUE) +
+                geom_point(size = input$pointSize,
+                           alpha = input$alphaInput) +
+                scale_color_manual(values = c("#BC3C29B2", "#000000", "#20854EB2"))
+            
+            if(input$change_limits1 == TRUE) {
+                
+                p <- p +
+                    scale_x_continuous(limits = c(input$xlim_lower1, input$xlim_upper1), 
+                                       breaks = seq(input$xlim_lower1, input$xlim_upper1, 
+                                                    (input$xlim_upper1 - input$xlim_lower1) / 5))
+            }
+            
+            if(input$change_limits2 == TRUE) {
+                
+                p <- p +
+                    scale_y_continuous(limits = c(input$ylim_lower1, input$ylim_upper1), 
+                                       breaks = seq(input$ylim_lower1, input$ylim_upper1, 
+                                                    (input$ylim_upper1 - input$ylim_lower1) / 5))
+            }
+            
+            if(input$change_limits1 == TRUE & input$change_limits2 == TRUE) {
+                
+                p <- p +
+                    scale_x_continuous(limits = c(input$xlim_lower1, input$xlim_upper1), 
+                                       breaks = seq(input$xlim_lower1, input$xlim_upper1, 
+                                                    (input$xlim_upper1 - input$xlim_lower1) / 5)) +
+                    scale_y_continuous(limits = c(input$ylim_lower1, input$ylim_upper1), 
+                                       breaks = seq(input$ylim_lower1, input$ylim_upper1, 
+                                                    (input$ylim_upper1 - input$ylim_lower1) / 5))
+            }
+        }
+        
+        if(input$ols == TRUE & input$W_deming == TRUE & input$pb == TRUE) {
+
+            p <- p +
+                geom_abline(aes(intercept = coef[1], slope = coef[2], 
+                                color = "Least square regression"),
+                            show.legend = TRUE) +
+                geom_abline(aes(intercept = WDeming.reg@para[1], slope = WDeming.reg@para[2], 
+                                color = "Weighted Deming regression"),
+                            show.legend = TRUE) +
+                geom_abline(aes(intercept = PB.reg@para[1], slope = PB.reg@para[2], 
+                                color = "Passing-Bablok regression"),
+                            show.legend = TRUE) +
+                geom_point(size = input$pointSize,
+                           alpha = input$alphaInput) +
+                scale_color_manual(values = c("#000000", "#0072B5B2", "#E18727B2"))
+            
+            if(input$change_limits1 == TRUE) {
+                
+                p <- p +
+                    scale_x_continuous(limits = c(input$xlim_lower1, input$xlim_upper1), 
+                                       breaks = seq(input$xlim_lower1, input$xlim_upper1, 
+                                                    (input$xlim_upper1 - input$xlim_lower1) / 5))
+            }
+            
+            if(input$change_limits2 == TRUE) {
+                
+                p <- p +
+                    scale_y_continuous(limits = c(input$ylim_lower1, input$ylim_upper1), 
+                                       breaks = seq(input$ylim_lower1, input$ylim_upper1, 
+                                                    (input$ylim_upper1 - input$ylim_lower1) / 5))
+            }
+            
+            if(input$change_limits1 == TRUE & input$change_limits2 == TRUE) {
+                
+                p <- p +
+                    scale_x_continuous(limits = c(input$xlim_lower1, input$xlim_upper1), 
+                                       breaks = seq(input$xlim_lower1, input$xlim_upper1, 
+                                                    (input$xlim_upper1 - input$xlim_lower1) / 5)) +
+                    scale_y_continuous(limits = c(input$ylim_lower1, input$ylim_upper1), 
+                                       breaks = seq(input$ylim_lower1, input$ylim_upper1, 
+                                                    (input$ylim_upper1 - input$ylim_lower1) / 5))
+            }
+        }
+        
+        if(input$ols == TRUE & input$W_deming == TRUE & input$pb_large == TRUE) {
+
+            p <- p +
+                geom_abline(aes(intercept = coef[1], slope = coef[2], 
+                                color = "Least square regression"),
+                            show.legend = TRUE) +
+                geom_abline(aes(intercept = WDeming.reg@para[1], slope = WDeming.reg@para[2], 
+                                color = "Weighted Deming regression"),
+                            show.legend = TRUE) +
+                geom_abline(aes(intercept = PB_large.reg@para[1], slope = PB_large.reg@para[2], 
+                                color = "Passing-Bablok regression (large)"),
+                            show.legend = TRUE) +
+                geom_point(size = input$pointSize,
+                           alpha = input$alphaInput) +
+                scale_color_manual(values = c("#000000", "#20854EB2", "#E18727B2"))
+            
+            if(input$change_limits1 == TRUE) {
+                
+                p <- p +
+                    scale_x_continuous(limits = c(input$xlim_lower1, input$xlim_upper1), 
+                                       breaks = seq(input$xlim_lower1, input$xlim_upper1, 
+                                                    (input$xlim_upper1 - input$xlim_lower1) / 5))
+            }
+            
+            if(input$change_limits2 == TRUE) {
+                
+                p <- p +
+                    scale_y_continuous(limits = c(input$ylim_lower1, input$ylim_upper1), 
+                                       breaks = seq(input$ylim_lower1, input$ylim_upper1, 
+                                                    (input$ylim_upper1 - input$ylim_lower1) / 5))
+            }
+            
+            if(input$change_limits1 == TRUE & input$change_limits2 == TRUE) {
+                
+                p <- p +
+                    scale_x_continuous(limits = c(input$xlim_lower1, input$xlim_upper1), 
+                                       breaks = seq(input$xlim_lower1, input$xlim_upper1, 
+                                                    (input$xlim_upper1 - input$xlim_lower1) / 5)) +
+                    scale_y_continuous(limits = c(input$ylim_lower1, input$ylim_upper1), 
+                                       breaks = seq(input$ylim_lower1, input$ylim_upper1, 
+                                                    (input$ylim_upper1 - input$ylim_lower1) / 5))
+            }
+        }
+        
+        if(input$ols == TRUE & input$pb == TRUE & input$pb_large == TRUE) {
+
+            p <- p +
+                geom_abline(aes(intercept = coef[1], slope = coef[2], 
+                                color = "Least square regression"),
+                            show.legend = TRUE) +
+                geom_abline(aes(intercept = PB.reg@para[1], slope = PB.reg@para[2], 
+                                color = "Passing-Bablok regression"),
+                            show.legend = TRUE) +
+                geom_abline(aes(intercept = PB_large.reg@para[1], slope = PB_large.reg@para[2], 
+                                color = "Passing-Bablok regression (large)"),
+                            show.legend = TRUE) +
+                geom_point(size = input$pointSize,
+                           alpha = input$alphaInput) +
+                scale_color_manual(values = c("#000000", "#0072B5B2", "#20854EB2"))
+            
+            if(input$change_limits1 == TRUE) {
+                
+                p <- p +
+                    scale_x_continuous(limits = c(input$xlim_lower1, input$xlim_upper1), 
+                                       breaks = seq(input$xlim_lower1, input$xlim_upper1, 
+                                                    (input$xlim_upper1 - input$xlim_lower1) / 5))
+            }
+            
+            if(input$change_limits2 == TRUE) {
+                
+                p <- p +
+                    scale_y_continuous(limits = c(input$ylim_lower1, input$ylim_upper1), 
+                                       breaks = seq(input$ylim_lower1, input$ylim_upper1, 
+                                                    (input$ylim_upper1 - input$ylim_lower1) / 5))
+            }
+            
+            if(input$change_limits1 == TRUE & input$change_limits2 == TRUE) {
+                
+                p <- p +
+                    scale_x_continuous(limits = c(input$xlim_lower1, input$xlim_upper1), 
+                                       breaks = seq(input$xlim_lower1, input$xlim_upper1, 
+                                                    (input$xlim_upper1 - input$xlim_lower1) / 5)) +
+                    scale_y_continuous(limits = c(input$ylim_lower1, input$ylim_upper1), 
+                                       breaks = seq(input$ylim_lower1, input$ylim_upper1, 
+                                                    (input$ylim_upper1 - input$ylim_lower1) / 5))
+            }
+        }
+        
+        if(input$deming == TRUE & input$W_deming == TRUE & input$pb == TRUE) {
+
+            p <- p +
+                geom_abline(aes(intercept = Deming.reg@para[1], slope = Deming.reg@para[2], 
+                                color = "Deming regression"),
+                            show.legend = TRUE) +
+                geom_abline(aes(intercept = WDeming.reg@para[1], slope = WDeming.reg@para[2], 
+                                color = "Weighted Deming regression"),
+                            show.legend = TRUE) +
+                geom_abline(aes(intercept = PB.reg@para[1], slope = PB.reg@para[2], 
+                                color = "Passing-Bablok regression"),
+                            show.legend = TRUE) +
+                geom_point(size = input$pointSize,
+                           alpha = input$alphaInput) +
+                scale_color_manual(values = c("#BC3C29B2", "#0072B5B2", "#E18727B2"))
+            
+            if(input$change_limits1 == TRUE) {
+                
+                p <- p +
+                    scale_x_continuous(limits = c(input$xlim_lower1, input$xlim_upper1), 
+                                       breaks = seq(input$xlim_lower1, input$xlim_upper1, 
+                                                    (input$xlim_upper1 - input$xlim_lower1) / 5))
+            }
+            
+            if(input$change_limits2 == TRUE) {
+                
+                p <- p +
+                    scale_y_continuous(limits = c(input$ylim_lower1, input$ylim_upper1), 
+                                       breaks = seq(input$ylim_lower1, input$ylim_upper1, 
+                                                    (input$ylim_upper1 - input$ylim_lower1) / 5))
+            }
+            
+            if(input$change_limits1 == TRUE & input$change_limits2 == TRUE) {
+                
+                p <- p +
+                    scale_x_continuous(limits = c(input$xlim_lower1, input$xlim_upper1), 
+                                       breaks = seq(input$xlim_lower1, input$xlim_upper1, 
+                                                    (input$xlim_upper1 - input$xlim_lower1) / 5)) +
+                    scale_y_continuous(limits = c(input$ylim_lower1, input$ylim_upper1), 
+                                       breaks = seq(input$ylim_lower1, input$ylim_upper1, 
+                                                    (input$ylim_upper1 - input$ylim_lower1) / 5))
+            }
+        }
+        
+        if(input$deming == TRUE & input$W_deming == TRUE & input$pb_large == TRUE) {
+
+            p <- p +
+                geom_abline(aes(intercept = Deming.reg@para[1], slope = Deming.reg@para[2], 
+                                color = "Deming regression"),
+                            show.legend = TRUE) +
+                geom_abline(aes(intercept = WDeming.reg@para[1], slope = WDeming.reg@para[2], 
+                                color = "Weighted Deming regression"),
+                            show.legend = TRUE) +
+                geom_abline(aes(intercept = PB_large.reg@para[1], slope = PB_large.reg@para[2], 
+                                color = "Passing-Bablok regression (large)"),
+                            show.legend = TRUE) +
+                geom_point(size = input$pointSize,
+                           alpha = input$alphaInput) +
+                scale_color_manual(values = c("#BC3C29B2", "#20854EB2", "#E18727B2"))
+            
+            if(input$change_limits1 == TRUE) {
+                
+                p <- p +
+                    scale_x_continuous(limits = c(input$xlim_lower1, input$xlim_upper1), 
+                                       breaks = seq(input$xlim_lower1, input$xlim_upper1, 
+                                                    (input$xlim_upper1 - input$xlim_lower1) / 5))
+            }
+            
+            if(input$change_limits2 == TRUE) {
+                
+                p <- p +
+                    scale_y_continuous(limits = c(input$ylim_lower1, input$ylim_upper1), 
+                                       breaks = seq(input$ylim_lower1, input$ylim_upper1, 
+                                                    (input$ylim_upper1 - input$ylim_lower1) / 5))
+            }
+            
+            if(input$change_limits1 == TRUE & input$change_limits2 == TRUE) {
+                
+                p <- p +
+                    scale_x_continuous(limits = c(input$xlim_lower1, input$xlim_upper1), 
+                                       breaks = seq(input$xlim_lower1, input$xlim_upper1, 
+                                                    (input$xlim_upper1 - input$xlim_lower1) / 5)) +
+                    scale_y_continuous(limits = c(input$ylim_lower1, input$ylim_upper1), 
+                                       breaks = seq(input$ylim_lower1, input$ylim_upper1, 
+                                                    (input$ylim_upper1 - input$ylim_lower1) / 5))
+            }
+        }
+        
+        if(input$deming == TRUE & input$pb == TRUE & input$pb_large == TRUE) {
+
+            p <- p +
+                geom_abline(aes(intercept = Deming.reg@para[1], slope = Deming.reg@para[2], 
+                                color = "Deming regression"),
+                            show.legend = TRUE) +
+                geom_abline(aes(intercept = PB.reg@para[1], slope = PB.reg@para[2], 
+                                color = "Passing-Bablok regression"),
+                            show.legend = TRUE) +
+                geom_abline(aes(intercept = PB_large.reg@para[1], slope = PB_large.reg@para[2], 
+                                color = "Passing-Bablok regression (large)"),
+                            show.legend = TRUE) +
+                geom_point(size = input$pointSize,
+                           alpha = input$alphaInput) +
+                scale_color_manual(values = c("#BC3C29B2", "#0072B5B2", "#20854EB2"))
+            
+            if(input$change_limits1 == TRUE) {
+                
+                p <- p +
+                    scale_x_continuous(limits = c(input$xlim_lower1, input$xlim_upper1), 
+                                       breaks = seq(input$xlim_lower1, input$xlim_upper1, 
+                                                    (input$xlim_upper1 - input$xlim_lower1) / 5))
+            }
+            
+            if(input$change_limits2 == TRUE) {
+                
+                p <- p +
+                    scale_y_continuous(limits = c(input$ylim_lower1, input$ylim_upper1), 
+                                       breaks = seq(input$ylim_lower1, input$ylim_upper1, 
+                                                    (input$ylim_upper1 - input$ylim_lower1) / 5))
+            }
+            
+            if(input$change_limits1 == TRUE & input$change_limits2 == TRUE) {
+                
+                p <- p +
+                    scale_x_continuous(limits = c(input$xlim_lower1, input$xlim_upper1), 
+                                       breaks = seq(input$xlim_lower1, input$xlim_upper1, 
+                                                    (input$xlim_upper1 - input$xlim_lower1) / 5)) +
+                    scale_y_continuous(limits = c(input$ylim_lower1, input$ylim_upper1), 
+                                       breaks = seq(input$ylim_lower1, input$ylim_upper1, 
+                                                    (input$ylim_upper1 - input$ylim_lower1) / 5))
+            }
+        }
+        
+        if(input$W_deming == TRUE & input$pb == TRUE & input$pb_large == TRUE) {
+
+            p <- p +
+                geom_abline(aes(intercept = WDeming.reg@para[1], slope = WDeming.reg@para[2], 
+                                color = "Weighted Deming regression"),
+                            show.legend = TRUE) +
+                geom_abline(aes(intercept = PB.reg@para[1], slope = PB.reg@para[2], 
+                                color = "Passing-Bablok regression"),
+                            show.legend = TRUE) +
+                geom_abline(aes(intercept = PB_large.reg@para[1], slope = PB_large.reg@para[2], 
+                                color = "Passing-Bablok regression (large)"),
+                            show.legend = TRUE) +
+                geom_point(size = input$pointSize,
+                           alpha = input$alphaInput) +
+                scale_color_manual(values = c("#0072B5B2", "#20854EB2", "#E18727B2"))
+            
+            if(input$change_limits1 == TRUE) {
+                
+                p <- p +
+                    scale_x_continuous(limits = c(input$xlim_lower1, input$xlim_upper1), 
+                                       breaks = seq(input$xlim_lower1, input$xlim_upper1, 
+                                                    (input$xlim_upper1 - input$xlim_lower1) / 5))
+            }
+            
+            if(input$change_limits2 == TRUE) {
+                
+                p <- p +
+                    scale_y_continuous(limits = c(input$ylim_lower1, input$ylim_upper1), 
+                                       breaks = seq(input$ylim_lower1, input$ylim_upper1, 
+                                                    (input$ylim_upper1 - input$ylim_lower1) / 5))
+            }
+            
+            if(input$change_limits1 == TRUE & input$change_limits2 == TRUE) {
+                
+                p <- p +
+                    scale_x_continuous(limits = c(input$xlim_lower1, input$xlim_upper1), 
+                                       breaks = seq(input$xlim_lower1, input$xlim_upper1, 
+                                                    (input$xlim_upper1 - input$xlim_lower1) / 5)) +
+                    scale_y_continuous(limits = c(input$ylim_lower1, input$ylim_upper1), 
+                                       breaks = seq(input$ylim_lower1, input$ylim_upper1, 
+                                                    (input$ylim_upper1 - input$ylim_lower1) / 5))
+            }
+        }
+        
+        if(input$ols == TRUE & input$deming == TRUE & input$W_deming == TRUE & input$pb == TRUE) {
+
+            p <- p +
+                geom_abline(aes(intercept = coef[1], slope = coef[2], 
+                                color = "Least square regression"),
+                            show.legend = TRUE) +
+                geom_abline(aes(intercept = Deming.reg@para[1], slope = Deming.reg@para[2], 
+                                color = "Deming regression"),
+                            show.legend = TRUE) +
+                geom_abline(aes(intercept = WDeming.reg@para[1], slope = WDeming.reg@para[2], 
+                                color = "Weighted Deming regression"),
+                            show.legend = TRUE) +
+                geom_abline(aes(intercept = PB.reg@para[1], slope = PB.reg@para[2], 
+                                color = "Passing-Bablok regression"),
+                            show.legend = TRUE) +
+                geom_point(size = input$pointSize,
+                           alpha = input$alphaInput) +
+                scale_color_manual(values = c("#BC3C29B2", "#000000", "#0072B5B2", "#E18727B2"))
+            
+            if(input$change_limits1 == TRUE) {
+                
+                p <- p +
+                    scale_x_continuous(limits = c(input$xlim_lower1, input$xlim_upper1), 
+                                       breaks = seq(input$xlim_lower1, input$xlim_upper1, 
+                                                    (input$xlim_upper1 - input$xlim_lower1) / 5))
+            }
+            
+            if(input$change_limits2 == TRUE) {
+                
+                p <- p +
+                    scale_y_continuous(limits = c(input$ylim_lower1, input$ylim_upper1), 
+                                       breaks = seq(input$ylim_lower1, input$ylim_upper1, 
+                                                    (input$ylim_upper1 - input$ylim_lower1) / 5))
+            }
+            
+            if(input$change_limits1 == TRUE & input$change_limits2 == TRUE) {
+                
+                p <- p +
+                    scale_x_continuous(limits = c(input$xlim_lower1, input$xlim_upper1), 
+                                       breaks = seq(input$xlim_lower1, input$xlim_upper1, 
+                                                    (input$xlim_upper1 - input$xlim_lower1) / 5)) +
+                    scale_y_continuous(limits = c(input$ylim_lower1, input$ylim_upper1), 
+                                       breaks = seq(input$ylim_lower1, input$ylim_upper1, 
+                                                    (input$ylim_upper1 - input$ylim_lower1) / 5))
+            }
+        }
+        
+        if(input$ols == TRUE & input$deming == TRUE & input$W_deming == TRUE & input$pb_large == TRUE) {
+
+            p <- p +
+                geom_abline(aes(intercept = coef[1], slope = coef[2], 
+                                color = "Least square regression"),
+                            show.legend = TRUE) +
+                geom_abline(aes(intercept = Deming.reg@para[1], slope = Deming.reg@para[2], 
+                                color = "Deming regression"),
+                            show.legend = TRUE) +
+                geom_abline(aes(intercept = WDeming.reg@para[1], slope = WDeming.reg@para[2], 
+                                color = "Weighted Deming regression"),
+                            show.legend = TRUE) +
+                geom_abline(aes(intercept = PB_large.reg@para[1], slope = PB_large.reg@para[2], 
+                                color = "Passing-Bablok regression (large)"),
+                            show.legend = TRUE) +
+                geom_point(size = input$pointSize,
+                           alpha = input$alphaInput) +
+                scale_color_manual(values = c("#BC3C29B2", "#000000", "#20854EB2", "#E18727B2"))
+            
+            if(input$change_limits1 == TRUE) {
+                
+                p <- p +
+                    scale_x_continuous(limits = c(input$xlim_lower1, input$xlim_upper1), 
+                                       breaks = seq(input$xlim_lower1, input$xlim_upper1, 
+                                                    (input$xlim_upper1 - input$xlim_lower1) / 5))
+            }
+            
+            if(input$change_limits2 == TRUE) {
+                
+                p <- p +
+                    scale_y_continuous(limits = c(input$ylim_lower1, input$ylim_upper1), 
+                                       breaks = seq(input$ylim_lower1, input$ylim_upper1, 
+                                                    (input$ylim_upper1 - input$ylim_lower1) / 5))
+            }
+            
+            if(input$change_limits1 == TRUE & input$change_limits2 == TRUE) {
+                
+                p <- p +
+                    scale_x_continuous(limits = c(input$xlim_lower1, input$xlim_upper1), 
+                                       breaks = seq(input$xlim_lower1, input$xlim_upper1, 
+                                                    (input$xlim_upper1 - input$xlim_lower1) / 5)) +
+                    scale_y_continuous(limits = c(input$ylim_lower1, input$ylim_upper1), 
+                                       breaks = seq(input$ylim_lower1, input$ylim_upper1, 
+                                                    (input$ylim_upper1 - input$ylim_lower1) / 5))
+            }
+        }
+        
+        if(input$ols == TRUE & input$deming == TRUE & input$pb == TRUE & input$pb_large == TRUE) {
+
+            p <- p +
+                geom_abline(aes(intercept = coef[1], slope = coef[2], 
+                                color = "Least square regression"),
+                            show.legend = TRUE) +
+                geom_abline(aes(intercept = Deming.reg@para[1], slope = Deming.reg@para[2], 
+                                color = "Deming regression"),
+                            show.legend = TRUE) +
+                geom_abline(aes(intercept = PB.reg@para[1], slope = PB.reg@para[2], 
+                                color = "Passing-Bablok regression"),
+                            show.legend = TRUE) +
+                geom_abline(aes(intercept = PB_large.reg@para[1], slope = PB_large.reg@para[2], 
+                                color = "Passing-Bablok regression (large)"),
+                            show.legend = TRUE) +
+                geom_point(size = input$pointSize,
+                           alpha = input$alphaInput) +
+                scale_color_manual(values = c("#000000", "#BC3C29B2", "#0072B5B2", "#20854EB2"))
+            
+            if(input$change_limits1 == TRUE) {
+                
+                p <- p +
+                    scale_x_continuous(limits = c(input$xlim_lower1, input$xlim_upper1), 
+                                       breaks = seq(input$xlim_lower1, input$xlim_upper1, 
+                                                    (input$xlim_upper1 - input$xlim_lower1) / 5))
+            }
+            
+            if(input$change_limits2 == TRUE) {
+                
+                p <- p +
+                    scale_y_continuous(limits = c(input$ylim_lower1, input$ylim_upper1), 
+                                       breaks = seq(input$ylim_lower1, input$ylim_upper1, 
+                                                    (input$ylim_upper1 - input$ylim_lower1) / 5))
+            }
+            
+            if(input$change_limits1 == TRUE & input$change_limits2 == TRUE) {
+                
+                p <- p +
+                    scale_x_continuous(limits = c(input$xlim_lower1, input$xlim_upper1), 
+                                       breaks = seq(input$xlim_lower1, input$xlim_upper1, 
+                                                    (input$xlim_upper1 - input$xlim_lower1) / 5)) +
+                    scale_y_continuous(limits = c(input$ylim_lower1, input$ylim_upper1), 
+                                       breaks = seq(input$ylim_lower1, input$ylim_upper1, 
+                                                    (input$ylim_upper1 - input$ylim_lower1) / 5))
+            }
+        }
+
+        if(input$ols == TRUE & input$W_deming == TRUE & input$pb == TRUE & input$pb_large == TRUE) {
+
+            p <- p +
+                geom_abline(aes(intercept = coef[1], slope = coef[2], 
+                                color = "Least square regression"),
+                            show.legend = TRUE) +
+                geom_abline(aes(intercept = WDeming.reg@para[1], slope = WDeming.reg@para[2], 
+                                color = "Weighted Deming regression"),
+                            show.legend = TRUE) +
+                geom_abline(aes(intercept = PB.reg@para[1], slope = PB.reg@para[2], 
+                                color = "Passing-Bablok regression"),
+                            show.legend = TRUE) +
+                geom_abline(aes(intercept = PB_large.reg@para[1], slope = PB_large.reg@para[2], 
+                                color = "Passing-Bablok regression (large)"),
+                            show.legend = TRUE) +
+                geom_point(size = input$pointSize,
+                           alpha = input$alphaInput) +
+                scale_color_manual(values = c("#000000", "#0072B5B2", "#20854EB2", "#E18727B2")) 
+            
+            if(input$change_limits1 == TRUE) {
+                
+                p <- p +
+                    scale_x_continuous(limits = c(input$xlim_lower1, input$xlim_upper1), 
+                                       breaks = seq(input$xlim_lower1, input$xlim_upper1, 
+                                                    (input$xlim_upper1 - input$xlim_lower1) / 5))
+            }
+            
+            if(input$change_limits2 == TRUE) {
+                
+                p <- p +
+                    scale_y_continuous(limits = c(input$ylim_lower1, input$ylim_upper1), 
+                                       breaks = seq(input$ylim_lower1, input$ylim_upper1, 
+                                                    (input$ylim_upper1 - input$ylim_lower1) / 5))
+            }
+            
+            if(input$change_limits1 == TRUE & input$change_limits2 == TRUE) {
+                
+                p <- p +
+                    scale_x_continuous(limits = c(input$xlim_lower1, input$xlim_upper1), 
+                                       breaks = seq(input$xlim_lower1, input$xlim_upper1, 
+                                                    (input$xlim_upper1 - input$xlim_lower1) / 5)) +
+                    scale_y_continuous(limits = c(input$ylim_lower1, input$ylim_upper1), 
+                                       breaks = seq(input$ylim_lower1, input$ylim_upper1, 
+                                                    (input$ylim_upper1 - input$ylim_lower1) / 5))
+            }
+        }
+        
+        if(input$deming == TRUE & input$W_deming == TRUE & input$pb == TRUE & input$pb_large == TRUE) {
+
+            p <- p +
+                geom_abline(aes(intercept = Deming.reg@para[1], slope = Deming.reg@para[2], 
+                                color = "Deming regression"),
+                            show.legend = TRUE) +
+                geom_abline(aes(intercept = WDeming.reg@para[1], slope = WDeming.reg@para[2], 
+                                color = "Weighted Deming regression"),
+                            show.legend = TRUE) +
+                geom_abline(aes(intercept = PB.reg@para[1], slope = PB.reg@para[2], 
+                                color = "Passing-Bablok regression"),
+                            show.legend = TRUE) +
+                geom_abline(aes(intercept = PB_large.reg@para[1], slope = PB_large.reg@para[2], 
+                                color = "Passing-Bablok regression (large)"),
+                            show.legend = TRUE) +
+                geom_point(size = input$pointSize,
+                           alpha = input$alphaInput) +
+                scale_color_manual(values = c("#BC3C29B2", "#0072B5B2", "#20854EB2", "#E18727B2"))
+            
+            if(input$change_limits1 == TRUE) {
+                
+                p <- p +
+                    scale_x_continuous(limits = c(input$xlim_lower1, input$xlim_upper1), 
+                                       breaks = seq(input$xlim_lower1, input$xlim_upper1, 
+                                                    (input$xlim_upper1 - input$xlim_lower1) / 5))
+            }
+            
+            if(input$change_limits2 == TRUE) {
+                
+                p <- p +
+                    scale_y_continuous(limits = c(input$ylim_lower1, input$ylim_upper1), 
+                                       breaks = seq(input$ylim_lower1, input$ylim_upper1, 
+                                                    (input$ylim_upper1 - input$ylim_lower1) / 5))
+            }
+            
+            if(input$change_limits1 == TRUE & input$change_limits2 == TRUE) {
+                
+                p <- p +
+                    scale_x_continuous(limits = c(input$xlim_lower1, input$xlim_upper1), 
+                                       breaks = seq(input$xlim_lower1, input$xlim_upper1, 
+                                                    (input$xlim_upper1 - input$xlim_lower1) / 5)) +
+                    scale_y_continuous(limits = c(input$ylim_lower1, input$ylim_upper1), 
+                                       breaks = seq(input$ylim_lower1, input$ylim_upper1, 
+                                                    (input$ylim_upper1 - input$ylim_lower1) / 5))
+            }
+        }
+        
+        if(input$ols == TRUE & input$deming == TRUE & input$W_deming == TRUE & input$pb == TRUE & input$pb_large == TRUE) {
+
+            p <- p +
+                geom_abline(aes(intercept = coef[1], slope = coef[2], 
+                                color = "Least square regression"),
+                            show.legend = TRUE) +
+                geom_abline(aes(intercept = Deming.reg@para[1], slope = Deming.reg@para[2], 
+                                color = "Deming regression"),
+                            show.legend = TRUE) +
+                geom_abline(aes(intercept = WDeming.reg@para[1], slope = WDeming.reg@para[2], 
+                                color = "Weighted Deming regression"),
+                            show.legend = TRUE) +
+                geom_abline(aes(intercept = PB.reg@para[1], slope = PB.reg@para[2], 
+                                color = "Passing-Bablok regression"),
+                            show.legend = TRUE) +
+                geom_abline(aes(intercept = PB_large.reg@para[1], slope = PB_large.reg@para[2], 
+                                color = "Passing-Bablok regression (large)"),
+                            show.legend = TRUE) +
+                geom_point(size = input$pointSize,
+                           alpha = input$alphaInput) +
+                scale_color_manual(values = c("#BC3C29B2", "#000000", "#0072B5B2", "#20854EB2", "#E18727B2"))
+            
+            if(input$change_limits1 == TRUE) {
+                
+                p <- p +
+                    scale_x_continuous(limits = c(input$xlim_lower1, input$xlim_upper1), 
+                                       breaks = seq(input$xlim_lower1, input$xlim_upper1, 
+                                                    (input$xlim_upper1 - input$xlim_lower1) / 5))
+            }
+            
+            if(input$change_limits2 == TRUE) {
+                
+                p <- p +
+                    scale_y_continuous(limits = c(input$ylim_lower1, input$ylim_upper1), 
+                                       breaks = seq(input$ylim_lower1, input$ylim_upper1, 
+                                                    (input$ylim_upper1 - input$ylim_lower1) / 5))
+            }
+            
+            if(input$change_limits1 == TRUE & input$change_limits2 == TRUE) {
+                
+                p <- p +
+                    scale_x_continuous(limits = c(input$xlim_lower1, input$xlim_upper1), 
+                                       breaks = seq(input$xlim_lower1, input$xlim_upper1, 
+                                                    (input$xlim_upper1 - input$xlim_lower1) / 5)) +
+                    scale_y_continuous(limits = c(input$ylim_lower1, input$ylim_upper1), 
+                                       breaks = seq(input$ylim_lower1, input$ylim_upper1, 
+                                                    (input$ylim_upper1 - input$ylim_lower1) / 5))
+            }
         }
         
         p
         
     })
     
+    # Download a scatter plot as PDF ----
     output$downloadPlotPDF1 <- downloadHandler(
         filename <- function() {
             paste("Scatter", ".pdf", sep = "")
@@ -412,6 +1597,7 @@ server <- function(input, output) {
         contentType = "application/pdf"
     ) 
     
+    # Download a scatter plot as PNG ----
     output$downloadPlotPNG1 <- downloadHandler(
         filename <- function() {
             paste("Scatter", ".png", sep = "")
@@ -425,118 +1611,550 @@ server <- function(input, output) {
         },
         contentType = "application/png"
     ) 
-    
-    
+
     # Generate a summary of the data ----
     output$reg_summary <- renderPrint({
         
         x <- inFile()[,2]
         y <- inFile()[,3]
         
+        model <- lm(y ~ x); coef <- coef(model)
+        Deming.reg <- mcreg(x, y, method.reg = "Deming")
+        WDeming.reg <- mcreg(x, y, method.reg = "WDeming")
+        PB.reg <- mcreg(x, y, method.reg = "PaBa")
+        PB_large.reg <- mcreg(x, y, method.reg = "PaBaLarge")
+        
         table <- c("If you choose regression methods from left panel, results will pop up")
         
-        if(input$ols == TRUE){
-            model <- lm(x ~ y)
-            coef <- summary(model)$coefficients
+        if(input$ols == TRUE) {
             
-            table <- paste("Least square regression:",
-                           "y =",
-                           round(coef[1,1], 3),
-                           "+",
-                           round(coef[2,1], 3),
-                           "x",
-                           sep = " ")
+            table <- paste0("Least square regression:",
+                           "y = ",
+                           round(coef[1], 3),
+                           " + ",
+                           round(coef[2], 3),
+                           " x")
         }
         
-        if(input$deming == TRUE){
-            Deming.reg <- mcreg(x, y, method.reg = "Deming")
+        if(input$deming == TRUE) {
             
-            table <- paste("Deming regression:",
-                           "y =",
+            table <- paste0("Deming regression:",
+                           "y = ",
                            round(Deming.reg@para[1], 3),
-                           "+",
+                           " + ",
                            round(Deming.reg@para[2], 3),
-                           "x",
-                           sep = " ")
+                           " x")
+        }
+        
+        if(input$W_deming == TRUE) {
+            
+            table <- paste0("Weighted Deming regression:",
+                           "y = ",
+                           round(WDeming.reg@para[1], 3),
+                           " + ",
+                           round(WDeming.reg@para[2], 3),
+                           " x")
         }
         
         if(input$pb == TRUE){
-            PB.reg <- mcreg(x, y, method.reg = "PaBa")
             
-            table <- paste("Passing-Bablok regression:",
-                           "y =",
+            table <- paste0("Passing-Bablok regression:",
+                           "y = ",
                            round(PB.reg@para[1], 3),
-                           "+",
+                           " + ",
                            round(PB.reg@para[1], 3),
-                           "x",
-                           sep = " ")
-        }
-
-        if(input$ols == TRUE & input$deming == TRUE){
-            model <- lm(x ~ y)
-            coef <- summary(model)$coefficients
-            
-            Deming.reg <- mcreg(x, y, method.reg = "Deming")
-            
-            table <- list("Least square regression" = paste("y =",
-                                                            round(coef[1,1], 3),
-                                                            "+",
-                                                            round(coef[2,1], 3),
-                                                            "x"),
-                          "Deming regression" = paste("y =",
-                                                      round(Deming.reg@para[1], 3),
-                                                      "+",
-                                                      round(Deming.reg@para[2], 3),
-                                                      "x",
-                                                      sep = " "))
+                           " x")
         }
         
-        if(input$ols == TRUE & input$pb == TRUE){
-            model <- lm(x ~ y)
-            coef <- summary(model)$coefficients
+        if(input$pb_large == TRUE){
             
-            PB.reg <- mcreg(x, y, method.reg = "PaBa")
-            
-            table <- list("Least square regression" = paste("y =",
-                                                            round(coef[1,1], 3),
-                                                            "+",
-                                                            round(coef[2,1], 3),
-                                                            "x"),
-                          "Passing-Bablok regression" = paste("y =",
-                                                              round(PB.reg@para[1], 3),
-                                                              "+",
-                                                              round(PB.reg@para[2], 3),
-                                                              "x",
-                                                              sep = " "))
-        }
-        
-        if(input$ols == TRUE & input$deming == TRUE & input$pb == TRUE){
-            model <- lm(x ~ y)
-            coef <- summary(model)$coefficients
-            
-            Deming.reg <- mcreg(x, y, method.reg = "Deming")
-            
-            PB.reg <- mcreg(x, y, method.reg = "PaBa")
-            
-            table <- list("Least square regression" = paste("y =",
-                                                            round(coef[1,1], 3),
-                                                            "+",
-                                                            round(coef[2,1], 3),
-                                                            "x"),
-                          "Deming regression" = paste("y =",
-                                                      round(Deming.reg@para[1], 3),
-                                                      "+",
-                                                      round(Deming.reg@para[2], 3),
-                                                      "x",
-                                                      sep = " "),
-                          "Passing-Bablok regression" = paste("y =",
-                                                              round(PB.reg@para[1], 3),
-                                                              "+",
-                                                              round(PB.reg@para[2], 3),
-                                                              "x",
-                                                              sep = " "))
+            table <- paste0("Passing-Bablok regression (large):",
+                           "y = ",
+                           round(PB_large.reg@para[1], 3),
+                           " + ",
+                           round(PB_large.reg@para[1], 3),
+                           " x")
         }
 
+        if(input$ols == TRUE & input$deming == TRUE) {
+
+            table <- list("Least square regression: " = paste0("y = ",
+                                                            round(coef[1], 3),
+                                                            " + ",
+                                                            round(coef[2], 3),
+                                                            "x"),
+                          "Deming regression: " = paste0("y = ",
+                                                      round(Deming.reg@para[1], 3),
+                                                      " + ",
+                                                      round(Deming.reg@para[2], 3),
+                                                      " x"))
+        }
+        
+        if(input$ols == TRUE & input$W_deming == TRUE) {
+
+            table <- list("Least square regression: " = paste0("y = ",
+                                                            round(coef[1], 3),
+                                                            " + ",
+                                                            round(coef[2], 3),
+                                                            "x"),
+                          "Weighted Deming regression: " = paste0("y = ",
+                                                               round(WDeming.reg@para[1], 3),
+                                                               " + ",
+                                                               round(WDeming.reg@para[2], 3),
+                                                               " x"))
+        }
+        
+        if(input$ols == TRUE & input$pb == TRUE) {
+
+            table <- list("Least square regression: " = paste0("y = ",
+                                                            round(coef[1], 3),
+                                                            " + ",
+                                                            round(coef[2], 3),
+                                                            "x"),
+                          "Passing-Bablok regression: " = paste0("y = ",
+                                                              round(PB.reg@para[1], 3),
+                                                              " + ",
+                                                              round(PB.reg@para[2], 3),
+                                                              " x"))
+        }
+        
+        if(input$ols == TRUE & input$pb_large == TRUE) {
+            
+            table <- list("Least square regression: " = paste0("y = ",
+                                                            round(coef[1], 3),
+                                                            " + ",
+                                                            round(coef[2], 3),
+                                                            "x"),
+                          "Passing-Bablok regression (large): " = paste0("y = ",
+                                                                      round(PB_large.reg@para[1], 3),
+                                                                      " + ",
+                                                                      round(PB_large.reg@para[2], 3),
+                                                                      " x"))
+        }
+        
+        if(input$deming == TRUE & input$W_deming == TRUE) {
+
+            table <- list("Deming regression: " = paste0("y = ",
+                                                      round(Deming.reg@para[1], 3),
+                                                      " + ",
+                                                      round(Deming.reg@para[2], 3),
+                                                      " x"),
+                          "Weighted Deming regression: " = paste0("y = ",
+                                                               round(WDeming.reg@para[1], 3),
+                                                               " + ",
+                                                               round(WDeming.reg@para[2], 3),
+                                                               " x"))
+        }
+        
+        if(input$deming == TRUE & input$pb == TRUE) {
+
+            table <- list("Deming regression: " = paste0("y = ",
+                                                      round(Deming.reg@para[1], 3),
+                                                      " + ",
+                                                      round(Deming.reg@para[2], 3),
+                                                      " x"),
+                          "Passing-Bablok regression: " = paste0("y = ",
+                                                              round(PB.reg@para[1], 3),
+                                                              " + ",
+                                                              round(PB.reg@para[2], 3),
+                                                              " x"))
+        }
+        
+        if(input$deming == TRUE & input$pb_large == TRUE) {
+            
+            table <- list("Deming regression: " = paste0("y = ",
+                                                      round(Deming.reg@para[1], 3),
+                                                      " + ",
+                                                      round(Deming.reg@para[2], 3),
+                                                      " x"),
+                          "Passing-Bablok regression (large): " = paste0("y = ",
+                                                                      round(PB_large.reg@para[1], 3),
+                                                                      " + ",
+                                                                      round(PB_large.reg@para[2], 3),
+                                                                      " x"))
+        }
+        
+        if(input$W_deming == TRUE & input$pb == TRUE) {
+
+            table <- list("Weighted Deming regression: " = paste0("y = ",
+                                                               round(WDeming.reg@para[1], 3),
+                                                               " + ",
+                                                               round(WDeming.reg@para[2], 3),
+                                                               " x"),
+                          "Passing-Bablok regression: " = paste0("y = ",
+                                                              round(PB.reg@para[1], 3),
+                                                              " + ",
+                                                              round(PB.reg@para[2], 3),
+                                                              " x"))
+        }
+        
+        if(input$W_deming == TRUE & input$pb_large == TRUE) {
+
+            table <- list("Weighted Deming regression: " = paste0("y = ",
+                                                               round(WDeming.reg@para[1], 3),
+                                                               " + ",
+                                                               round(WDeming.reg@para[2], 3),
+                                                               " x"),
+                          "Passing-Bablok regression (large): " = paste0("y = ",
+                                                                      round(PB_large.reg@para[1], 3),
+                                                                      " + ",
+                                                                      round(PB_large.reg@para[2], 3),
+                                                                      " x"))
+        }
+        
+        if(input$pb == TRUE & input$pb_large == TRUE) {
+
+            table <- list("Passing-Bablok regression: " = paste0("y = ",
+                                                              round(PB.reg@para[1], 3),
+                                                              " + ",
+                                                              round(PB.reg@para[2], 3),
+                                                              " x"),
+                          "Passing-Bablok regression (large): " = paste0("y = ",
+                                                                      round(PB_large.reg@para[1], 3),
+                                                                      " + ",
+                                                                      round(PB_large.reg@para[2], 3),
+                                                                      " x"))
+        }
+        
+        if(input$ols == TRUE & input$deming == TRUE & input$W_deming == TRUE) {
+
+            table <- list("Least square regression: " = paste0("y = ",
+                                                            round(coef[1], 3),
+                                                            " + ",
+                                                            round(coef[2], 3),
+                                                            "x"),
+                          "Deming regression: " = paste0("y = ",
+                                                      round(Deming.reg@para[1], 3),
+                                                      " + ",
+                                                      round(Deming.reg@para[2], 3),
+                                                      " x"),
+                          "Weighted Deming regression: " = paste0("y = ",
+                                                               round(WDeming.reg@para[1], 3),
+                                                               " + ",
+                                                               round(WDeming.reg@para[2], 3),
+                                                               " x"))
+        }
+        
+        if(input$ols == TRUE & input$deming == TRUE & input$pb == TRUE) {
+
+            table <- list("Least square regression: " = paste0("y = ",
+                                                              round(coef[1], 3),
+                                                              " + ",
+                                                              round(coef[2], 3),
+                                                              "x"),
+                          "Deming regression: " = paste0("y = ",
+                                                        round(Deming.reg@para[1], 3),
+                                                        " + ",
+                                                        round(Deming.reg@para[2], 3),
+                                                        " x"),
+                          "Passing-Bablok regression: " = paste0("y = ",
+                                                                round(PB.reg@para[1], 3),
+                                                                " + ",
+                                                                round(PB.reg@para[2], 3),
+                                                                " x"))
+        }
+        
+        if(input$ols == TRUE & input$deming == TRUE & input$pb_large == TRUE) {
+            
+            table <- list("Least square regression: " = paste0("y = ",
+                                                              round(coef[1], 3),
+                                                              " + ",
+                                                              round(coef[2], 3),
+                                                              "x"),
+                          "Deming regression: " = paste0("y = ",
+                                                        round(Deming.reg@para[1], 3),
+                                                        " + ",
+                                                        round(Deming.reg@para[2], 3),
+                                                        " x"),
+                          "Passing-Bablok regression (large): " = paste0("y = ",
+                                                                        round(PB_large.reg@para[1], 3),
+                                                                        " + ",
+                                                                        round(PB_large.reg@para[2], 3),
+                                                                        " x"))
+        }
+
+        if(input$ols == TRUE & input$W_deming == TRUE & input$pb == TRUE) {
+
+            table <- list("Least square regression: " = paste0("y = ",
+                                                              round(coef[1], 3),
+                                                              " + ",
+                                                              round(coef[2], 3),
+                                                              "x"),
+                          "Weighted Deming regression: " = paste0("y = ",
+                                                                 round(WDeming.reg@para[1], 3),
+                                                                 " + ",
+                                                                 round(WDeming.reg@para[2], 3),
+                                                                 " x"),
+                          "Passing-Bablok regression: " = paste0("y = ",
+                                                                round(PB.reg@para[1], 3),
+                                                                " + ",
+                                                                round(PB.reg@para[2], 3),
+                                                                " x"))
+        }
+        
+        if(input$ols == TRUE & input$W_deming == TRUE & input$pb_large == TRUE) {
+
+            table <- list("Least square regression: " = paste0("y = ",
+                                                              round(coef[1], 3),
+                                                              " + ",
+                                                              round(coef[2], 3),
+                                                              "x"),
+                          "Weighted Deming regression: " = paste0("y = ",
+                                                                 round(WDeming.reg@para[1], 3),
+                                                                 " + ",
+                                                                 round(WDeming.reg@para[2], 3),
+                                                                 " x"),
+                          "Passing-Bablok regression (large): " = paste0("y = ",
+                                                                        round(PB_large.reg@para[1], 3),
+                                                                        " + ",
+                                                                        round(PB_large.reg@para[2], 3),
+                                                                        " x"))
+        }
+        
+        if(input$ols == TRUE & input$pb == TRUE & input$pb_large == TRUE) {
+
+            table <- list("Least square regression: " = paste0("y = ",
+                                                              round(coef[1], 3),
+                                                              " + ",
+                                                              round(coef[2], 3),
+                                                              "x"),
+                          "Passing-Bablok regression: " = paste0("y = ",
+                                                                round(PB.reg@para[1], 3),
+                                                                " + ",
+                                                                round(PB.reg@para[2], 3),
+                                                                " x"),
+                          "Passing-Bablok regression (large): " = paste0("y = ",
+                                                                        round(PB_large.reg@para[1], 3),
+                                                                        " + ",
+                                                                        round(PB_large.reg@para[2], 3),
+                                                                        " x"))
+        }
+        
+        if(input$deming == TRUE & input$W_deming == TRUE & input$pb == TRUE) {
+
+            table <- list("Deming regression: " = paste0("y = ",
+                                                        round(Deming.reg@para[1], 3),
+                                                        " + ",
+                                                        round(Deming.reg@para[2], 3),
+                                                        " x"),
+                          "Weighted Deming regression: " = paste0("y = ",
+                                                                 round(WDeming.reg@para[1], 3),
+                                                                 " + ",
+                                                                 round(WDeming.reg@para[2], 3),
+                                                                 " x"),
+                          "Passing-Bablok regression: " = paste0("y = ",
+                                                                round(PB.reg@para[1], 3),
+                                                                " + ",
+                                                                round(PB.reg@para[2], 3),
+                                                                " x"))
+        }
+        
+        if(input$deming == TRUE & input$W_deming == TRUE & input$pb_large == TRUE) {
+
+            table <- list("Deming regression: " = paste0("y = ",
+                                                        round(Deming.reg@para[1], 3),
+                                                        " + ",
+                                                        round(Deming.reg@para[2], 3),
+                                                        " x"),
+                          "Weighted Deming regression: " = paste0("y = ",
+                                                                 round(WDeming.reg@para[1], 3),
+                                                                 " + ",
+                                                                 round(WDeming.reg@para[2], 3),
+                                                                 " x"),
+                          "Passing-Bablok regression (large): " = paste0("y = ",
+                                                                        round(PB_large.reg@para[1], 3),
+                                                                        " + ",
+                                                                        round(PB_large.reg@para[2], 3),
+                                                                        " x"))
+        }
+        
+        if(input$deming == TRUE & input$pb == TRUE & input$pb_large == TRUE) {
+
+            table <- list("Deming regression: " = paste0("y = ",
+                                                        round(Deming.reg@para[1], 3),
+                                                        " + ",
+                                                        round(Deming.reg@para[2], 3),
+                                                        " x"),
+                          "Passing-Bablok regression: " = paste0("y = ",
+                                                                round(PB.reg@para[1], 3),
+                                                                " + ",
+                                                                round(PB.reg@para[2], 3),
+                                                                " x"),
+                          "Passing-Bablok regression (large): " = paste0("y = ",
+                                                                        round(PB_large.reg@para[1], 3),
+                                                                        " + ",
+                                                                        round(PB_large.reg@para[2], 3),
+                                                                        " x"))
+        }
+        
+        if(input$W_deming == TRUE & input$pb == TRUE & input$pb_large == TRUE) {
+
+            table <- list("Weighted Deming regression: " = paste0("y = ",
+                                                                 round(WDeming.reg@para[1], 3),
+                                                                 " + ",
+                                                                 round(WDeming.reg@para[2], 3),
+                                                                 " x"),
+                          "Passing-Bablok regression: " = paste0("y = ",
+                                                                round(PB.reg@para[1], 3),
+                                                                " + ",
+                                                                round(PB.reg@para[2], 3),
+                                                                " x"),
+                          "Passing-Bablok regression (large): " = paste0("y = ",
+                                                                        round(PB_large.reg@para[1], 3),
+                                                                        " + ",
+                                                                        round(PB_large.reg@para[2], 3),
+                                                                        " x"))
+        }
+        
+        if(input$ols == TRUE & input$deming == TRUE & input$W_deming == TRUE & input$pb == TRUE) {
+
+            table <- list("Least square regression: " = paste0("y = ",
+                                                              round(coef[1], 3),
+                                                              " + ",
+                                                              round(coef[2], 3),
+                                                              "x"),
+                          "Deming regression: " = paste0("y = ",
+                                                        round(Deming.reg@para[1], 3),
+                                                        " + ",
+                                                        round(Deming.reg@para[2], 3),
+                                                        " x"),
+                          "Weighted Deming regression: " = paste0("y = ",
+                                                                 round(WDeming.reg@para[1], 3),
+                                                                 " + ",
+                                                                 round(WDeming.reg@para[2], 3),
+                                                                 " x"),
+                          "Passing-Bablok regression: " = paste0("y = ",
+                                                                round(PB.reg@para[1], 3),
+                                                                " + ",
+                                                                round(PB.reg@para[2], 3),
+                                                                " x"))
+        }
+        
+        if(input$ols == TRUE & input$deming == TRUE & input$W_deming == TRUE & input$pb_large == TRUE) {
+
+            table <- list("Least square regression: " = paste0("y = ",
+                                                              round(coef[1], 3),
+                                                              " + ",
+                                                              round(coef[2], 3),
+                                                              "x"),
+                          "Deming regression: " = paste0("y = ",
+                                                        round(Deming.reg@para[1], 3),
+                                                        " + ",
+                                                        round(Deming.reg@para[2], 3),
+                                                        " x"),
+                          "Weighted Deming regression: " = paste0("y = ",
+                                                                 round(WDeming.reg@para[1], 3),
+                                                                 " + ",
+                                                                 round(WDeming.reg@para[2], 3),
+                                                                 " x"),
+                          "Passing-Bablok regression (large): " = paste0("y = ",
+                                                                        round(PB_large.reg@para[1], 3),
+                                                                        " + ",
+                                                                        round(PB_large.reg@para[2], 3),
+                                                                        " x"))
+        }
+        
+        if(input$ols == TRUE & input$deming == TRUE & input$pb == TRUE & input$pb_large == TRUE) {
+
+            table <- list("Least square regression: " = paste0("y = ",
+                                                              round(coef[1], 3),
+                                                              " + ",
+                                                              round(coef[2], 3),
+                                                              "x"),
+                          "Deming regression: " = paste0("y = ",
+                                                        round(Deming.reg@para[1], 3),
+                                                        " + ",
+                                                        round(Deming.reg@para[2], 3),
+                                                        " x"),
+                          "Passing-Bablok regression: " = paste0("y = ",
+                                                                round(PB.reg@para[1], 3),
+                                                                " + ",
+                                                                round(PB.reg@para[2], 3),
+                                                                " x"),
+                          "Passing-Bablok regression (large): " = paste0("y = ",
+                                                                        round(PB_large.reg@para[1], 3),
+                                                                        " + ",
+                                                                        round(PB_large.reg@para[2], 3),
+                                                                        " x"))
+        }
+        
+        if(input$ols == TRUE & input$W_deming == TRUE & input$pb == TRUE & input$pb_large == TRUE) {
+
+            table <- list("Least square regression: " = paste0("y = ",
+                                                              round(coef[1], 3),
+                                                              " + ",
+                                                              round(coef[2], 3),
+                                                              "x"),
+                          "Weighted Deming regression: " = paste0("y = ",
+                                                                 round(WDeming.reg@para[1], 3),
+                                                                 " + ",
+                                                                 round(WDeming.reg@para[2], 3),
+                                                                 " x"),
+                          "Passing-Bablok regression: " = paste0("y = ",
+                                                                round(PB.reg@para[1], 3),
+                                                                " + ",
+                                                                round(PB.reg@para[2], 3),
+                                                                " x"),
+                          "Passing-Bablok regression (large): " = paste0("y = ",
+                                                                        round(PB_large.reg@para[1], 3),
+                                                                        " + ",
+                                                                        round(PB_large.reg@para[2], 3),
+                                                                        " x"))
+        }
+        
+        if(input$deming == TRUE & input$W_deming == TRUE & input$pb == TRUE & input$pb_large == TRUE) {
+
+            table <- list("Deming regression: " = paste0("y = ",
+                                                        round(Deming.reg@para[1], 3),
+                                                        " + ",
+                                                        round(Deming.reg@para[2], 3),
+                                                        " x"),
+                          "Weighted Deming regression: " = paste0("y = ",
+                                                                 round(WDeming.reg@para[1], 3),
+                                                                 " + ",
+                                                                 round(WDeming.reg@para[2], 3),
+                                                                 " x"),
+                          "Passing-Bablok regression: " = paste0("y = ",
+                                                                round(PB.reg@para[1], 3),
+                                                                " + ",
+                                                                round(PB.reg@para[2], 3),
+                                                                " x"),
+                          "Passing-Bablok regression (large): " = paste0("y = ",
+                                                                        round(PB_large.reg@para[1], 3),
+                                                                        " + ",
+                                                                        round(PB_large.reg@para[2], 3),
+                                                                        " x"))
+        }
+        
+        if(input$ols == TRUE & input$deming == TRUE & input$W_deming == TRUE & input$pb == TRUE & input$pb_large == TRUE) {
+
+            table <- list("Least square regression: " = paste0("y = ",
+                                                              round(coef[1], 3),
+                                                              " + ",
+                                                              round(coef[2], 3),
+                                                              "x"),
+                          "Deming regression: " = paste0("y = ",
+                                                         round(Deming.reg@para[1], 3),
+                                                         " + ",
+                                                         round(Deming.reg@para[2], 3),
+                                                         " x"),
+                          "Weighted Deming regression: " = paste0("y = ",
+                                                                 round(WDeming.reg@para[1], 3),
+                                                                 " + ",
+                                                                 round(WDeming.reg@para[2], 3),
+                                                                 " x"),
+                          "Passing-Bablok regression: " = paste0("y = ",
+                                                                round(PB.reg@para[1], 3),
+                                                                " + ",
+                                                                round(PB.reg@para[2], 3),
+                                                                " x"),
+                          "Passing-Bablok regression (large): " = paste0("y = ",
+                                                                        round(PB_large.reg@para[1], 3),
+                                                                        " + ",
+                                                                        round(PB_large.reg@para[2], 3),
+                                                                        " x"))
+        }
+        
         table
         
     })
@@ -558,11 +2176,12 @@ server <- function(input, output) {
         x <- inFile()[,2]
         y <- inFile()[,3]
         
-        mean_diff <- mean(x - y)
-        lower <- mean(x - y) - 1.96 * sd(x - y)
-        upper <- mean(x - y) + 1.96 * sd(x - y)
-        
         if (input$plot_type == 1) {
+            
+            D <- x - y
+            mean_diff <- mean(D)
+            lower <- mean(D) - 1.96 * sd(D)
+            upper <- mean(D) + 1.96 * sd(D)
             
             p <- ggplot(inFile(), aes(x = (x + y) / 2, y = x - y)) +
                 geom_point(size = input$pointSize1,
@@ -577,70 +2196,42 @@ server <- function(input, output) {
                 theme(axis.title = element_text(size = input$title_sz1),
                       axis.text = element_text(size = input$label_sz1))
             
-            if(input$change_limits1 == TRUE){
+            if(input$change_limits3 == TRUE) {
                 
-                p <- ggplot(inFile(), aes(x = (x + y) / 2, y = x - y)) +
-                    geom_point(size = input$pointSize1,
-                               alpha = input$alphaInput1, color = "#000000") +
-                    geom_hline(yintercept = mean_diff) +
-                    geom_hline(yintercept = lower, color = "#696969", 
-                               linetype = "dashed") +
-                    geom_hline(yintercept = upper, color = "#696969", 
-                               linetype = "dashed") +
-                    scale_x_continuous(limits = c(input$xlim_lower, input$xlim_upper), 
-                                       breaks = seq(input$xlim_lower, input$xlim_upper, 
-                                                    (input$xlim_upper - input$xlim_lower) / 10)) +
-                    theme_bw() +
-                    labs(x = input$lab_x1, y = input$lab_y1) +
-                    theme(axis.title = element_text(size = input$title_sz1),
-                          axis.text = element_text(size = input$label_sz1))
+                p <- p +
+                    scale_x_continuous(limits = c(input$xlim_lower2, input$xlim_upper2), 
+                                       breaks = seq(input$xlim_lower2, input$xlim_upper2, 
+                                                    (input$xlim_upper2 - input$xlim_lower2) / 5))
             } 
             
-            if(input$change_limits2 == TRUE){
+            if(input$change_limits4 == TRUE) {
                 
-                p <- ggplot(inFile(), aes(x = (x + y) / 2, y = x - y)) +
-                    geom_point(size = input$pointSize1,
-                               alpha = input$alphaInput1, color = "#000000") +
-                    geom_hline(yintercept = mean_diff) +
-                    geom_hline(yintercept = lower, color = "#696969", 
-                               linetype = "dashed") +
-                    geom_hline(yintercept = upper, color = "#696969", 
-                               linetype = "dashed") +
-                    scale_y_continuous(limits = c(input$ylim_lower, input$ylim_upper), 
-                                       breaks = seq(input$ylim_lower, input$ylim_upper, 
-                                                    (input$ylim_upper - input$ylim_lower) / 10)) +
-                    theme_bw() +
-                    labs(x = input$lab_x1, y = input$lab_y1) +
-                    theme(axis.title = element_text(size = input$title_sz1),
-                          axis.text = element_text(size = input$label_sz1))
+                p <- p +
+                    scale_y_continuous(limits = c(input$ylim_lower2, input$ylim_upper2), 
+                                       breaks = seq(input$ylim_lower2, input$ylim_upper2, 
+                                                    (input$ylim_upper2 - input$ylim_lower2) / 5))
             }
             
-            if(input$change_limits1 == TRUE & input$change_limits2 == TRUE){
+            if(input$change_limits3 == TRUE & input$change_limits4 == TRUE) {
                 
-                p <- ggplot(inFile(), aes(x = (x + y) / 2, y = x - y)) +
-                    geom_point(size = input$pointSize1,
-                               alpha = input$alphaInput1, color = "#000000") +
-                    geom_hline(yintercept = mean_diff) +
-                    geom_hline(yintercept = lower, color = "#696969", 
-                               linetype = "dashed") +
-                    geom_hline(yintercept = upper, color = "#696969", 
-                               linetype = "dashed") +
-                    scale_x_continuous(limits = c(input$xlim_lower, input$xlim_upper), 
-                                       breaks = seq(input$xlim_lower, input$xlim_upper, 
-                                                    (input$xlim_upper - input$xlim_lower) / 10)) +
-                    scale_y_continuous(limits = c(input$ylim_lower, input$ylim_upper), 
-                                       breaks = seq(input$ylim_lower, input$ylim_upper, 
-                                                    (input$ylim_upper - input$ylim_lower) / 10)) +
-                    theme_bw() +
-                    labs(x = input$lab_x1, y = input$lab_y1) +
-                    theme(axis.title = element_text(size = input$title_sz1),
-                          axis.text = element_text(size = input$label_sz1))
+                p <- p +
+                    scale_x_continuous(limits = c(input$xlim_lower2, input$xlim_upper2), 
+                                       breaks = seq(input$xlim_lower2, input$xlim_upper2, 
+                                                    (input$xlim_upper2 - input$xlim_lower2) / 5)) +
+                    scale_y_continuous(limits = c(input$ylim_lower2, input$ylim_upper2), 
+                                       breaks = seq(input$ylim_lower2, input$ylim_upper2, 
+                                                    (input$ylim_upper2 - input$ylim_lower2) / 5))
             }
         }
         
         if (input$plot_type == 2) {
             
-            p <- ggplot(inFile(), aes(x = (x + y) / 2, y = (x - y) / x)) +
+            DP <- ((x - y) / x) * 100
+            mean_diff <- mean(DP)
+            lower <- mean(DP) - 1.96 * sd(DP)
+            upper <- mean(DP) + 1.96 * sd(DP)
+            
+            p <- ggplot(inFile(), aes(x = (x + y) / 2, y = ((x - y) / x) * 100)) +
                 geom_point(size = input$pointSize1,
                            alpha = input$alphaInput1, color = "#000000") +
                 geom_hline(yintercept = mean_diff) +
@@ -653,64 +2244,31 @@ server <- function(input, output) {
                 theme(axis.title = element_text(size = input$title_sz1),
                       axis.text = element_text(size = input$label_sz1))
             
-            if(input$change_limits1 == TRUE){
+            if(input$change_limits3 == TRUE) {
                 
-                p <- ggplot(inFile(), aes(x = (x + y) / 2, y = (x - y) / x)) +
-                    geom_point(size = input$pointSize1,
-                               alpha = input$alphaInput1, color = "#000000") +
-                    geom_hline(yintercept = mean_diff) +
-                    geom_hline(yintercept = lower, color = "#696969", 
-                               linetype = "dashed") +
-                    geom_hline(yintercept = upper, color = "#696969", 
-                               linetype = "dashed") +
-                    scale_x_continuous(limits = c(input$xlim_lower, input$xlim_upper), 
-                                       breaks = seq(input$xlim_lower, input$xlim_upper, 
-                                                    (input$xlim_upper - input$xlim_lower) / 10)) +
-                    theme_bw() +
-                    labs(x = input$lab_x1, y = paste("%", input$lab_y1, sep = "")) +
-                    theme(axis.title = element_text(size = input$title_sz1),
-                          axis.text = element_text(size = input$label_sz1))
+                p <- p +
+                    scale_x_continuous(limits = c(input$xlim_lower2, input$xlim_upper2), 
+                                       breaks = seq(input$xlim_lower2, input$xlim_upper2, 
+                                                    (input$xlim_upper2 - input$xlim_lower2) / 5))
             } 
             
-            if(input$change_limits2 == TRUE){
+            if(input$change_limits4 == TRUE) {
                 
-                p <- ggplot(inFile(), aes(x = (x + y) / 2, y = (x - y) / x)) +
-                    geom_point(size = input$pointSize1,
-                               alpha = input$alphaInput1, color = "#000000") +
-                    geom_hline(yintercept = mean_diff) +
-                    geom_hline(yintercept = lower, color = "#696969", 
-                               linetype = "dashed") +
-                    geom_hline(yintercept = upper, color = "#696969", 
-                               linetype = "dashed") +
-                    scale_y_continuous(limits = c(input$ylim_lower, input$ylim_upper), 
-                                       breaks = seq(input$ylim_lower, input$ylim_upper, 
-                                                    (input$ylim_upper - input$ylim_lower) / 10)) +
-                    theme_bw() +
-                    labs(x = input$lab_x1, y = paste("%", input$lab_y1, sep = "")) +
-                    theme(axis.title = element_text(size = input$title_sz1),
-                          axis.text = element_text(size = input$label_sz1))
+                p <- p +
+                    scale_y_continuous(limits = c(input$ylim_lower2, input$ylim_upper2), 
+                                       breaks = seq(input$ylim_lower2, input$ylim_upper2, 
+                                                    (input$ylim_upper2 - input$ylim_lower2) / 5))
             }
             
-            if(input$change_limits1 == TRUE & input$change_limits2 == TRUE){
+            if(input$change_limits3 == TRUE & input$change_limits4 == TRUE) {
                 
-                p <- ggplot(inFile(), aes(x = (x + y) / 2, y = (x - y) / x)) +
-                    geom_point(size = input$pointSize1,
-                               alpha = input$alphaInput1, color = "#000000") +
-                    geom_hline(yintercept = mean_diff) +
-                    geom_hline(yintercept = lower, color = "#696969", 
-                               linetype = "dashed") +
-                    geom_hline(yintercept = upper, color = "#696969", 
-                               linetype = "dashed") +
-                    scale_x_continuous(limits = c(input$xlim_lower, input$xlim_upper), 
-                                       breaks = seq(input$xlim_lower, input$xlim_upper, 
-                                                    (input$xlim_upper - input$xlim_lower) / 10)) +
-                    scale_y_continuous(limits = c(input$ylim_lower, input$ylim_upper), 
-                                       breaks = seq(input$ylim_lower, input$ylim_upper, 
-                                                    (input$ylim_upper - input$ylim_lower) / 10)) +
-                    theme_bw() +
-                    labs(x = input$lab_x1, y = paste("%", input$lab_y1, sep = "")) +
-                    theme(axis.title = element_text(size = input$title_sz1),
-                          axis.text = element_text(size = input$label_sz1))
+                p <- p +
+                    scale_x_continuous(limits = c(input$xlim_lower2, input$xlim_upper2), 
+                                       breaks = seq(input$xlim_lower2, input$xlim_upper2, 
+                                                    (input$xlim_upper2 - input$xlim_lower2) / 5)) +
+                    scale_y_continuous(limits = c(input$ylim_lower2, input$ylim_upper2), 
+                                       breaks = seq(input$ylim_lower2, input$ylim_upper2, 
+                                                    (input$ylim_upper2 - input$ylim_lower2) / 5))
             } 
         }
         
@@ -718,6 +2276,7 @@ server <- function(input, output) {
         
     })
     
+    # Download a BA plot as PDF ----
     output$downloadPlotPDF2 <- downloadHandler(
         filename <- function() {
             paste("BAplot", ".pdf", sep = "")
@@ -732,6 +2291,7 @@ server <- function(input, output) {
         contentType = "application/pdf"
     ) 
     
+    # Download a BA plot as PNG ----
     output$downloadPlotPNG2 <- downloadHandler(
         filename <- function() {
             paste("BAplot", ".png", sep = "")
@@ -747,8 +2307,37 @@ server <- function(input, output) {
     ) 
     
     # Generate a summary of the data ----
-    output$summary <- renderPrint({
-        summary(inFile()[,c(2,3)])
+    output$loa_summary <- renderPrint({
+        
+        x <- inFile()[,2]
+        y <- inFile()[,3]
+        
+        if(input$plot_type == 1) {
+            
+            D <- x - y
+            mean_diff <- mean(D)
+            lower <- mean(D) - 1.96 * sd(D)
+            upper <- mean(D) + 1.96 * sd(D)
+            
+            table <- list("Difference" = round(mean_diff, 3),
+                          "Upper limit of agreement" = round(upper, 3),
+                          "Lower limit of agreement" = round(lower, 3))
+        }
+        
+        if(input$plot_type == 2) {
+            
+            DP <- ((x - y) / x) * 100
+            mean_diff <- mean(DP)
+            lower <- mean(DP) - 1.96 * sd(DP)
+            upper <- mean(DP) + 1.96 * sd(DP)
+            
+            table <- list("Difference (%)" = round(mean_diff, 3),
+                          "Upper limit of agreement (%)" = round(upper, 3),
+                          "Lower limit of agreement (%)" = round(lower, 3))
+        }
+        
+        table
+        
     })
 }
 

@@ -11,7 +11,7 @@ Bug reports and feature requests can be communicated in several ways:</p>
 
 <li>Github: <a href="https://github.com/fujichaaan/compaRison">fujichaaan/compaRison</a></li>
 <li>Twitter: <a href="https://twitter.com/RF_epidemiol">@RF_epidemiol</a></li>
-<li>Email: <a href="mailto:rfujii@fujita-hu.ac.jp">rfujii@fujita-hu.ac.jp</a></li>
+<li>Email: <a href="mailto:rfujii@fujita-hu.ac.jp">rfujii@fujita-hu.ac.jp</a> OR <a href="mailto:ryosuke.fujii@eurac.edu">ryosuke.fujii@eurac.edu</a></li>
 </ul>
 
 <h3>2. Source </h3>
@@ -20,21 +20,22 @@ Bug reports and feature requests can be communicated in several ways:</p>
 <h3>3. Technical reference </h3>
 
 <h4>3-1. Regression methods </h4>
-All of these methods is a technique to fit a straight line in two-dimensional dataset.
+All of these methods (least square method, Deming regression, Weighted Deming Regression, Passing-Bablok regression, and Passing-Bablok regression [approximative for large dataset]) is a technique to fit a straight line in two-dimensional dataset.
 
 <ul>
 <li>Least square regression: This is simple linear regression where only the response variable (Y) is measured with error. </li>
 <li>Deming regression: This regression method was introduced by Deming WE in 1943. It takes into account for errors on both the exposure (X) and the response variable (Y). </li>
 <li>Passing-Bablok regression: This regression method was introduced by Passing H & Bablok W in 1983. It can be performed without any specific assumptions of both the exposure (X) and the response variable (Y) (distribution & measurement errors). </li>
-
 </ul>
+
+These regression methods are implemented by mcreg() function in R "mcr" package. Plese refer to <a href="https://cran.r-project.org/web/packages/mcr/mcr.pdf">manual of mcr package</a>.
 
 <h4>3-2. Bland-Altman plot </h4>
 This plot is introduced by Bland JM and Altman DG in 1983. This plot is useful to explore the difference between two measurements. <br>
 For example, if you change an instrument for a specific biomarker in laboratory, you need to check the difference of values from instrument A with instrument B.
 
 <h3>4. Acknowledgement</h3>
-<p>Thank you for giving me inspiration of this app from Mr.Yuya Ishihara (Fujita Health University Hospital).</p>
+<p>Thank you for giving me inspiration of this app from Mr. Yuya Ishihara (Fujita Health University Hospital).</p>
 
 <p>There are several Shiny apps for BA plots and others that have served as a source of inspiration:</br>
 <ul>
