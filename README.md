@@ -7,12 +7,13 @@ Please access the following URL to run this web app:
 
 https://rf-epidemiol.shinyapps.io/compaRison/
 
-## 1. Example plots
+## 1. Example plots & results
 ### Scatter plot with regression lines
-![Scatter](https://user-images.githubusercontent.com/19466700/181629603-15d7bca5-a496-4ff2-a6eb-802aa594fe8d.png)
+This R shiny app is available for five regression models (least square method, Deming regression, Weighted Deming regression, Passing-Bablok regression, and approximative Passing-Bablok regression).
+![Scatter](https://user-images.githubusercontent.com/19466700/184702134-b69b9e0a-65a7-4537-9e59-ff285be325a3.png)
 
 ### Bland-Altman plot
-![BAplot](https://user-images.githubusercontent.com/19466700/181629622-d4f44de5-1590-402f-be9a-a6ac603d6804.png)
+![BAplot](https://user-images.githubusercontent.com/19466700/184702119-fe826242-786d-4b7a-b357-5b0f7596e8e5.png)
 
 ## 2. Cautions
 - The column of your input data should be arrigned like Example data:
@@ -20,7 +21,6 @@ https://rf-epidemiol.shinyapps.io/compaRison/
     - Column 2: Value for Measurement A
     - Column 3: Value for Measurement B
 - Passing-Bablok regression will take a some time compared with other two regression models. Please be patience with large N data.
-- File name of PDF output does not assign well.
 - Be sure NOT to flip back min and max of axis limits (X- and Y-), thus be careful to assign them properly.
 
 ## 3. Credits & Info
