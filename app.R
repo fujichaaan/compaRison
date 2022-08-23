@@ -26,10 +26,9 @@ ui <- fluidPage(
                              
                              radioButtons(
                                  "data_input", "",
-                                 choices = 
-                                     list("Example data 1" = 1,
-                                          "Example data 2" = 2,
-                                          "Upload file (.csv/.txt)" = 3),
+                                 choices =  list("Example data 1" = 1,
+                                                 "Example data 2" = 2,
+                                                 "Upload file (.csv/.txt)" = 3),
                                  selected =  1),
                              
                              conditionalPanel(
@@ -104,11 +103,15 @@ ui <- fluidPage(
             # Side panel for "BA plot" tab ----
             conditionalPanel(condition = "input.tabselected == 3",
                              h3("Select plot"),
-                             radioButtons("plot_type", "", 
-                                          choices = 
-                                              list(
-                                                  "BA, y-axis: Difference [absolute]" = 1,
-                                                  "BA, y-axis: Difference/Method A * 100 [percentage]" = 2),
+                             radioButtons("plot_type", "Choose one", 
+                                          choices =  list("y-axis: Difference [absolute]" = 1,
+                                                          "y-axis: Difference/Method A * 100 [percentage]" = 2,
+                                                          "y-axis: Difference [log2 transformed]" = 3),
+                                          selected =  1),
+                             h3("Statistics"),
+                             radioButtons("stats", "Choose one", 
+                                          choices =  list("Parametric" = 1,
+                                                          "Non-parametric" = 2),
                                           selected =  1),
                              h3("Aesthetics"),
                              sliderInput("pointSize1", "Size of the datapoints", 0, 10, 4),  
@@ -1404,7 +1407,7 @@ server <- function(input, output) {
                             show.legend = TRUE) +
                 geom_point(size = input$pointSize,
                            alpha = input$alphaInput) +
-                scale_color_manual(values = c("#000000", "#BC3C29B2", "#0072B5B2", "#20854EB2"))
+                scale_color_manual(values = c("#BC3C29B2", "#000000", "#0072B5B2", "#20854EB2"))
             
             if(input$change_limits1 == TRUE) {
                 
@@ -2176,7 +2179,7 @@ server <- function(input, output) {
         x <- inFile()[,2]
         y <- inFile()[,3]
         
-        if (input$plot_type == 1) {
+        if (input$plot_type == 1 & input$stats == 1) {
             
             D <- x - y
             mean_diff <- mean(D)
@@ -2199,32 +2202,24 @@ server <- function(input, output) {
             if(input$change_limits3 == TRUE) {
                 
                 p <- p +
-                    scale_x_continuous(limits = c(input$xlim_lower2, input$xlim_upper2), 
-                                       breaks = seq(input$xlim_lower2, input$xlim_upper2, 
-                                                    (input$xlim_upper2 - input$xlim_lower2) / 5))
+                    scale_x_continuous(limits = c(input$xlim_lower2, input$xlim_upper2))
             } 
             
             if(input$change_limits4 == TRUE) {
                 
                 p <- p +
-                    scale_y_continuous(limits = c(input$ylim_lower2, input$ylim_upper2), 
-                                       breaks = seq(input$ylim_lower2, input$ylim_upper2, 
-                                                    (input$ylim_upper2 - input$ylim_lower2) / 5))
+                    scale_y_continuous(limits = c(input$ylim_lower2, input$ylim_upper2))
             }
             
             if(input$change_limits3 == TRUE & input$change_limits4 == TRUE) {
                 
                 p <- p +
-                    scale_x_continuous(limits = c(input$xlim_lower2, input$xlim_upper2), 
-                                       breaks = seq(input$xlim_lower2, input$xlim_upper2, 
-                                                    (input$xlim_upper2 - input$xlim_lower2) / 5)) +
-                    scale_y_continuous(limits = c(input$ylim_lower2, input$ylim_upper2), 
-                                       breaks = seq(input$ylim_lower2, input$ylim_upper2, 
-                                                    (input$ylim_upper2 - input$ylim_lower2) / 5))
+                    scale_x_continuous(limits = c(input$xlim_lower2, input$xlim_upper2)) +
+                    scale_y_continuous(limits = c(input$ylim_lower2, input$ylim_upper2))
             }
         }
         
-        if (input$plot_type == 2) {
+        if (input$plot_type == 2 & input$stats == 1) {
             
             DP <- ((x - y) / x) * 100
             mean_diff <- mean(DP)
@@ -2240,36 +2235,188 @@ server <- function(input, output) {
                 geom_hline(yintercept = upper, color = "#696969", 
                            linetype = "dashed") +
                 theme_bw() +
-                labs(x = input$lab_x1, y = paste("%", input$lab_y1, sep = "")) +
+                labs(x = input$lab_x1, y = paste0("%", input$lab_y1)) +
                 theme(axis.title = element_text(size = input$title_sz1),
                       axis.text = element_text(size = input$label_sz1))
             
             if(input$change_limits3 == TRUE) {
                 
                 p <- p +
-                    scale_x_continuous(limits = c(input$xlim_lower2, input$xlim_upper2), 
-                                       breaks = seq(input$xlim_lower2, input$xlim_upper2, 
-                                                    (input$xlim_upper2 - input$xlim_lower2) / 5))
+                    scale_x_continuous(limits = c(input$xlim_lower2, input$xlim_upper2))
             } 
             
             if(input$change_limits4 == TRUE) {
                 
                 p <- p +
-                    scale_y_continuous(limits = c(input$ylim_lower2, input$ylim_upper2), 
-                                       breaks = seq(input$ylim_lower2, input$ylim_upper2, 
-                                                    (input$ylim_upper2 - input$ylim_lower2) / 5))
+                    scale_y_continuous(limits = c(input$ylim_lower2, input$ylim_upper2))
             }
             
             if(input$change_limits3 == TRUE & input$change_limits4 == TRUE) {
                 
                 p <- p +
-                    scale_x_continuous(limits = c(input$xlim_lower2, input$xlim_upper2), 
-                                       breaks = seq(input$xlim_lower2, input$xlim_upper2, 
-                                                    (input$xlim_upper2 - input$xlim_lower2) / 5)) +
-                    scale_y_continuous(limits = c(input$ylim_lower2, input$ylim_upper2), 
-                                       breaks = seq(input$ylim_lower2, input$ylim_upper2, 
-                                                    (input$ylim_upper2 - input$ylim_lower2) / 5))
+                    scale_x_continuous(limits = c(input$xlim_lower2, input$xlim_upper2)) +
+                    scale_y_continuous(limits = c(input$ylim_lower2, input$ylim_upper2))
+            }
+        }
+        
+        if (input$plot_type == 3 & input$stats == 1) {
+            
+            DL <- log2(x/y)
+            mean_diff <- mean(DL)
+            lower <- mean(DL) - 1.96 * sd(DL)
+            upper <- mean(DL) + 1.96 * sd(DL)
+            
+            p <- ggplot(inFile(), aes(x = (x + y) / 2, y = log2(x/y))) +
+                geom_point(size = input$pointSize1,
+                           alpha = input$alphaInput1, color = "#000000") +
+                geom_hline(yintercept = mean_diff) +
+                geom_hline(yintercept = lower, color = "#696969", 
+                           linetype = "dashed") +
+                geom_hline(yintercept = upper, color = "#696969", 
+                           linetype = "dashed") +
+                theme_bw() +
+                labs(x = input$lab_x1, y = paste0(input$lab_y1, " (log2 trasnformed)")) +
+                theme(axis.title = element_text(size = input$title_sz1),
+                      axis.text = element_text(size = input$label_sz1))
+            
+            if(input$change_limits3 == TRUE) {
+                
+                p <- p +
+                    scale_x_continuous(limits = c(input$xlim_lower2, input$xlim_upper2))
             } 
+            
+            if(input$change_limits4 == TRUE) {
+                
+                p <- p +
+                    scale_y_continuous(limits = c(input$ylim_lower2, input$ylim_upper2))
+            }
+            
+            if(input$change_limits3 == TRUE & input$change_limits4 == TRUE) {
+                
+                p <- p +
+                    scale_x_continuous(limits = c(input$xlim_lower2, input$xlim_upper2)) +
+                    scale_y_continuous(limits = c(input$ylim_lower2, input$ylim_upper2))
+            } 
+        }
+        
+        if (input$plot_type == 1 & input$stats == 2) {
+            
+            D <- x - y
+            med_diff <- median(D)
+            upper <- quantile(D, probs = 0.95)[[1]]
+            lower <- quantile(D, probs = 0.05)[[1]]
+            
+            p <- ggplot(inFile(), aes(x = (x + y) / 2, y = x - y)) +
+                geom_point(size = input$pointSize1,
+                           alpha = input$alphaInput1, color = "#000000") +
+                geom_hline(yintercept = med_diff) +
+                geom_hline(yintercept = lower, color = "#696969", 
+                           linetype = "dashed") +
+                geom_hline(yintercept = upper, color = "#696969", 
+                           linetype = "dashed") +
+                theme_bw() +
+                labs(x = input$lab_x1, y = input$lab_y1) +
+                theme(axis.title = element_text(size = input$title_sz1),
+                      axis.text = element_text(size = input$label_sz1))
+            
+            if(input$change_limits3 == TRUE) {
+                
+                p <- p +
+                    scale_x_continuous(limits = c(input$xlim_lower2, input$xlim_upper2))
+            } 
+            
+            if(input$change_limits4 == TRUE) {
+                
+                p <- p +
+                    scale_y_continuous(limits = c(input$ylim_lower2, input$ylim_upper2))
+            }
+            
+            if(input$change_limits3 == TRUE & input$change_limits4 == TRUE) {
+                
+                p <- p +
+                    scale_x_continuous(limits = c(input$xlim_lower2, input$xlim_upper2)) +
+                    scale_y_continuous(limits = c(input$ylim_lower2, input$ylim_upper2))
+            }
+        }
+        
+        if (input$plot_type == 2 & input$stats == 2) {
+            
+            DP <- ((x - y) / x) * 100
+            med_diff <- median(DP)
+            upper <- quantile(DP, probs = 0.95)[[1]]
+            lower <- quantile(DP, probs = 0.05)[[1]]
+            
+            p <- ggplot(inFile(), aes(x = (x + y) / 2, y = ((x - y) / x) * 100)) +
+                geom_point(size = input$pointSize1,
+                           alpha = input$alphaInput1, color = "#000000") +
+                geom_hline(yintercept = med_diff) +
+                geom_hline(yintercept = lower, color = "#696969", 
+                           linetype = "dashed") +
+                geom_hline(yintercept = upper, color = "#696969", 
+                           linetype = "dashed") +
+                theme_bw() +
+                labs(x = input$lab_x1, y = paste0("%", input$lab_y1)) +
+                theme(axis.title = element_text(size = input$title_sz1),
+                      axis.text = element_text(size = input$label_sz1))
+            
+            if(input$change_limits3 == TRUE) {
+                
+                p <- p +
+                    scale_x_continuous(limits = c(input$xlim_lower2, input$xlim_upper2))
+            } 
+            
+            if(input$change_limits4 == TRUE) {
+                
+                p <- p +
+                    scale_y_continuous(limits = c(input$ylim_lower2, input$ylim_upper2))
+            }
+            
+            if(input$change_limits3 == TRUE & input$change_limits4 == TRUE) {
+                
+                p <- p +
+                    scale_x_continuous(limits = c(input$xlim_lower2, input$xlim_upper2)) +
+                    scale_y_continuous(limits = c(input$ylim_lower2, input$ylim_upper2))
+            }
+        }
+        
+        if (input$plot_type == 3 & input$stats == 2) {
+            
+            DL <- log2(x/y)
+            med_diff <- median(DL)
+            upper <- quantile(DL, probs = 0.95)[[1]]
+            lower <- quantile(DL, probs = 0.05)[[1]]
+            
+            p <- ggplot(inFile(), aes(x = (x + y) / 2, y = log2(x/y))) +
+                geom_point(size = input$pointSize1,
+                           alpha = input$alphaInput1, color = "#000000") +
+                geom_hline(yintercept = med_diff) +
+                geom_hline(yintercept = lower, color = "#696969", 
+                           linetype = "dashed") +
+                geom_hline(yintercept = upper, color = "#696969", 
+                           linetype = "dashed") +
+                theme_bw() +
+                labs(x = input$lab_x1, y = paste0(input$lab_y1, " (log2 trasnformed)")) +
+                theme(axis.title = element_text(size = input$title_sz1),
+                      axis.text = element_text(size = input$label_sz1))
+            
+            if(input$change_limits3 == TRUE) {
+                
+                p <- p +
+                    scale_x_continuous(limits = c(input$xlim_lower2, input$xlim_upper2))
+            } 
+            
+            if(input$change_limits4 == TRUE) {
+                
+                p <- p +
+                    scale_y_continuous(limits = c(input$ylim_lower2, input$ylim_upper2))
+            }
+            
+            if(input$change_limits3 == TRUE & input$change_limits4 == TRUE) {
+                
+                p <- p +
+                    scale_x_continuous(limits = c(input$xlim_lower2, input$xlim_upper2)) +
+                    scale_y_continuous(limits = c(input$ylim_lower2, input$ylim_upper2))
+            }
         }
         
         p
@@ -2312,28 +2459,76 @@ server <- function(input, output) {
         x <- inFile()[,2]
         y <- inFile()[,3]
         
-        if(input$plot_type == 1) {
+        if(input$plot_type == 1 & input$stats == 1) {
             
             D <- x - y
             mean_diff <- mean(D)
-            lower <- mean(D) - 1.96 * sd(D)
             upper <- mean(D) + 1.96 * sd(D)
+            lower <- mean(D) - 1.96 * sd(D)
             
             table <- list("Difference" = round(mean_diff, 3),
                           "Upper limit of agreement" = round(upper, 3),
                           "Lower limit of agreement" = round(lower, 3))
         }
         
-        if(input$plot_type == 2) {
+        if(input$plot_type == 2 & input$stats == 1) {
             
             DP <- ((x - y) / x) * 100
             mean_diff <- mean(DP)
-            lower <- mean(DP) - 1.96 * sd(DP)
             upper <- mean(DP) + 1.96 * sd(DP)
+            lower <- mean(DP) - 1.96 * sd(DP)
             
             table <- list("Difference (%)" = round(mean_diff, 3),
                           "Upper limit of agreement (%)" = round(upper, 3),
                           "Lower limit of agreement (%)" = round(lower, 3))
+        }
+        
+        if(input$plot_type == 3 & input$stats == 1) {
+            
+            DL <- log2(x/y)
+            mean_diff <- mean(DL)
+            upper <- mean(DL) + 1.96 * sd(DL)
+            lower <- mean(DL) - 1.96 * sd(DL)
+            
+            table <- list("Difference" = round(mean_diff, 3),
+                          "Upper limit of agreement" = round(upper, 3),
+                          "Lower limit of agreement" = round(lower, 3))
+        }
+        
+        if(input$plot_type == 1 & input$stats == 2) {
+            
+            D <- x - y
+            med_diff <- median(D)
+            upper <- quantile(D, probs = 0.95)[[1]]
+            lower <- quantile(D, probs = 0.05)[[1]]
+            
+            table <- list("Difference" = round(med_diff, 3),
+                          "Upper limit of agreement" = round(upper, 3),
+                          "Lower limit of agreement" = round(lower, 3))
+        }
+        
+        if(input$plot_type == 2 & input$stats == 2) {
+            
+            DP <- ((x - y) / x) * 100
+            med_diff <- median(DP)
+            upper <- quantile(DP, probs = 0.95)[[1]]
+            lower <- quantile(DP, probs = 0.05)[[1]]
+            
+            table <- list("Difference (%)" = round(med_diff, 3),
+                          "Upper limit of agreement (%)" = round(upper, 3),
+                          "Lower limit of agreement (%)" = round(lower, 3))
+        }
+        
+        if(input$plot_type == 3 & input$stats == 2) {
+            
+            DL <- log2(x/y)
+            med_diff <- median(DL)
+            upper <- quantile(DL, probs = 0.95)[[1]]
+            lower <- quantile(DL, probs = 0.05)[[1]]
+            
+            table <- list("Difference" = round(med_diff, 3),
+                          "Upper limit of agreement" = round(upper, 3),
+                          "Lower limit of agreement" = round(lower, 3))
         }
         
         table
