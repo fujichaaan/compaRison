@@ -14,6 +14,8 @@ The column of your input data should be arrigned like Example data:
 - Column 2: Value for Measurement A
 - Column 3: Value for Measurement B
 
+![screencapture-rf-epidemiol-shinyapps-io-compaRison-2022-08-24-02_06_54](https://user-images.githubusercontent.com/19466700/186287295-63952f35-4c7d-481e-b44b-20ff06748e86.png)
+
 ## Step 2. Scatter plot with regression lines
 Please select combinations of various regression models.
 This application implements five regression models as follows:
@@ -26,9 +28,13 @@ This application implements five regression models as follows:
 
 The graphical options are available in the left column.
 
+![screencapture-rf-epidemiol-shinyapps-io-compaRison-2022-08-24-02_09_09](https://user-images.githubusercontent.com/19466700/186287313-b51c11e7-a1cd-4244-8635-e75d2e46c5bc.png)
+
 ## Step 3. Bland-Altman plot & Limits of agreement
 Please select plot types & assumptions about distribution of y-axis.
 The graphical options are available in the left column.
+
+![screencapture-rf-epidemiol-shinyapps-io-compaRison-2022-08-24-02_08_58](https://user-images.githubusercontent.com/19466700/186287325-44f0db8a-afa1-48f7-af61-503d716c8483.png)
 
 ## Cautions
 - Passing-Bablok regression will take a some time compared with other two regression models. Please be patience with large N data.
