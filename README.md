@@ -40,6 +40,9 @@ The graphical options are available in the left column.
 - Passing-Bablok regression will take a some time compared with other two regression models. Please be patience with large N data.
 - Be sure NOT to flip back min and max of axis limits (X- and Y-), thus be careful to assign them properly.
 
+## Version control
+Ver.1.0.0: September 1 2022
+
 ## Credits & Info
 This app is developed by <a href="https://scholar.google.com/citations?user=IFFZUGcAAAAJ&hl=en">Ryosuke Fujii</a> (Fujita Health Univ 🇯🇵 / Eurac Research 🇮🇹). <br>
 We thank Mr. Ishihara for inspiring us to develop this web app.
