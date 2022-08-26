@@ -1,4 +1,4 @@
-library(shiny); library(readxl); library(tidyverse); library(mcr); library(shinythemes)
+library(shiny); library(readxl); library(tidyverse); library(mcr); library(shinythemes); library(readr); library(magrittr)
 
 options(digits = 4)
 
@@ -28,32 +28,29 @@ ui <- fluidPage(
                                  "data_input", "",
                                  choices =  list("Example data 1" = 1,
                                                  "Example data 2" = 2,
-                                                 "Upload file (.csv/.txt)" = 3),
+                                                 "Upload file (.csv/.txt/.xlsx/.xls)" = 3),
                                  selected =  1),
                              
                              conditionalPanel(
-                                 condition = "input.data_input=='1'",
+                                 condition = "input.data_input == '1'",
                                  p('Example data 1: 20 individuals, One outlier in b')),
                              
                              conditionalPanel(
-                                 condition = "input.data_input=='2'",
+                                 condition = "input.data_input == '2'",
                                  p('Example data 2: 100 individuals, Original data is provided from the published paper (Schmidt RL, et al. PLoS One 2015)')),
-                             
-                             conditionalPanel(
-                                 condition = "input.data_input=='3'",
-                                 h4('Make sure the variables you want to compare are in 2nd and 3rd column')),
 
                              conditionalPanel(
-                                 condition = "input.data_input=='3'",
-                                 fileInput("file",
-                                       label = "",
-                                       accept = c("text/csv"),
-                                       multiple = FALSE,
-                                       width = "100%"))
+                                 condition = "input.data_input == '3'",
+                                 h4('Make sure the variables you want to compare are in 2nd and 3rd column'),
+                                 fileInput("file", NULL, multiple = FALSE, accept = c(".xlsx", ".xls", ".txt", ".csv")),
+                                 selectInput("upload_delim", label = "Select Delimiter (for text file):", 
+                                             choices = list("Comma" = ",", "Tab" = "\t", "Semicolon" = ";", "Space" = " ")),
+                                 selectInput("sheet", label = "Select sheet (for excel workbook):", choices = " "))
             ),
             
             # Side panel for "Scatter plot" tab ----
             conditionalPanel(condition = "input.tabselected == 2",
+                             
                              h3("Regression line"),
                              checkboxInput(inputId = "ols",
                                            label = "Least square method",
@@ -66,16 +63,19 @@ ui <- fluidPage(
                                            value = FALSE),
                              checkboxInput(inputId = "pb",
                                            label = "Passing-Bablok regression (Take some time)",
-                                           value = TRUE),
+                                           value = FALSE),
                              checkboxInput(inputId = "pb_large",
                                            label = "Passing-Bablok regression (Approximative P-B regression)",
                                            value = FALSE),
+                             
                              h3("Aesthetics"),
                              sliderInput("pointSize", "Size of the datapoints", 0, 10, 4),  
                              sliderInput("alphaInput", "Visibility of the data", 0, 1, 0.8),
+                             
                              h3("Scaling"),
                              numericInput("plot_height", "Plot height (# pixels): ", value = 600),
                              numericInput("plot_width", "Plot width (# pixels):", value = 800),
+                             
                              h3("Labels"),
                              textInput("lab_x", "X-axis:", value = "Method A"),
                              textInput("lab_y", "Y-axis:", value = "Method B"),
@@ -83,62 +83,69 @@ ui <- fluidPage(
                              sliderInput("label_sz", "Font size of labels", 0, 30, 20),
                              sliderInput("leg_title_sz", "Font size of legend title", 0, 30, 18),
                              sliderInput("leg_label_sz", "Font size of legend text", 0, 30, 16),
+                             
                              h3("Change Axis limits"),
                              checkboxInput(inputId = "change_limits1",
                                            label = "Change limits of X-axis",
                                            value = FALSE),
-                             conditionalPanel(
-                                 condition = "input.change_limits1 == true",
-                                 numericInput("xlim_lower1", "X limit (Lower): ", value = NA),
-                                 numericInput("xlim_upper1", "X limit (Upper): ", value = NA)),
+                             
+                             conditionalPanel(condition = "input.change_limits1 == true",
+                                              numericInput("xlim_lower1", "X limit (Lower): ", value = NA),
+                                              numericInput("xlim_upper1", "X limit (Upper): ", value = NA)),
+                             
                              checkboxInput(inputId = "change_limits2",
                                            label = "Change limits of Y-axis",
                                            value = FALSE),
-                             conditionalPanel(
-                                 condition = "input.change_limits2 == true",
-                                 numericInput("ylim_lower1", "Y limit (Lower): ", value = NA),
-                                 numericInput("ylim_upper1", "Y limit (Upper): ", value = NA))
+                             
+                             conditionalPanel(condition = "input.change_limits2 == true",
+                                              numericInput("ylim_lower1", "Y limit (Lower): ", value = NA),
+                                              numericInput("ylim_upper1", "Y limit (Upper): ", value = NA))
             ),
             
             # Side panel for "BA plot" tab ----
             conditionalPanel(condition = "input.tabselected == 3",
+                             
                              h3("Select plot"),
                              radioButtons("plot_type", "Choose one", 
                                           choices =  list("y-axis: Difference [absolute]" = 1,
                                                           "y-axis: Difference/Method A * 100 [percentage]" = 2,
-                                                          "y-axis: Difference [log2 transformed]" = 3),
+                                                          "y-axis: Difference [log2 transformed]" = 3,
+                                                          "y-axis: Coefficient of variance (CV)" = 4),
                                           selected =  1),
+                             
                              h3("Statistics"),
                              radioButtons("stats", "Choose one", 
                                           choices =  list("Parametric" = 1,
                                                           "Non-parametric" = 2),
                                           selected =  1),
+                             
                              h3("Aesthetics"),
                              sliderInput("pointSize1", "Size of the datapoints", 0, 10, 4),  
                              sliderInput("alphaInput1", "Visibility of the data", 0, 1, 0.8),
+                             
                              h3("Scaling"),
                              numericInput("plot_height1", "Plot height (# pixels): ", value = 600),
                              numericInput("plot_width1", "Plot width (# pixels):", value = 600),
+                             
                              h3("Labels"),
                              textInput("lab_x1", "X-axis:", value = "Mean of A and B"),
                              textInput("lab_y1", "Y-axis:", value = "Difference of A and B"),
                              sliderInput("title_sz1", "Font size of title", 0, 30, 24),
                              sliderInput("label_sz1", "Font size of labels", 0, 30, 20),
+                             
                              h3("Change Axis limits"),
                              checkboxInput(inputId = "change_limits3",
                                            label = "Change limits of X-axis",
                                            value = FALSE),
-                             conditionalPanel(
-                                 condition = "input.change_limits3 == true",
-                                 numericInput("xlim_lower2", "X limit (Lower): ", value = NA),
-                                 numericInput("xlim_upper2", "X limit (Upper): ", value = NA)),
+                             conditionalPanel(condition = "input.change_limits3 == true",
+                                              numericInput("xlim_lower2", "X limit (Lower): ", value = NA),
+                                              numericInput("xlim_upper2", "X limit (Upper): ", value = NA)),
                              checkboxInput(inputId = "change_limits4",
                                            label = "Change limits of Y-axis",
                                            value = FALSE),
-                             conditionalPanel(
-                                 condition = "input.change_limits4 == true",
-                                 numericInput("ylim_lower2", "Y limit (Lower): ", value = NA),
-                                 numericInput("ylim_upper2", "Y limit (Upper): ", value = NA))
+                             conditionalPanel(condition = "input.change_limits4 == true",
+                                              numericInput("ylim_lower2", "Y limit (Lower): ", value = NA),
+                                              numericInput("ylim_upper2", "Y limit (Upper): ", value = NA))
             ),
         ),
 
@@ -190,7 +197,7 @@ ui <- fluidPage(
 )
 
 # Define server logic for random distribution app ----
-server <- function(input, output) {
+server <- function(input, output, session) {
     
     inFile <- reactive({
         
@@ -203,13 +210,47 @@ server <- function(input, output) {
         }
         
         else if (input$data_input == 3) {
-            tmp <- input$file
+            file_in <- input$file
             
-            if (is.null(tmp)) {
+            if (is.null(file_in)) {
+                
                 return(NULL)
+                
             } else {
-                data <- read.csv(tmp$datapath, header = TRUE)
+                
+                # Isolate extenstion and convert to lowercase
+                filename_split <- strsplit(file_in$datapath, '[.]')[[1]]
+                fileext <- tolower(filename_split[length(filename_split)])
+                
+                if (fileext == "txt" | fileext == "csv") {
+                    
+                    data <- read.csv(file = file_in$datapath, sep = input$upload_delim, na.strings = c("", ".","NA", "NaN", "#N/A", "#VALUE!"))
+                    updateSelectInput(session, "sheet", choices = " ", selected = " ")
+                    
+                } else if (fileext == "xls" | fileext == "xlsx") {
+                    
+                    names <- excel_sheets(path = file_in$datapath)
+                    sheet.selected <- input$sheet 
+                    updateSelectInput(session, "sheet", choices = names, selected = sheet.selected)
+                    
+                    if (input$sheet %in% names){
+                        
+                        n <- which(names == input$sheet)
+                        
+                    } else {
+                        
+                        n <- 1
+                        updateSelectInput(session, "sheet", choices = names)
+                        
+                    }
+                    
+                    data <- read_excel(file_in$datapath, sheet = n , na = c("",".","NA", "NaN", "#N/A", "#VALUE!"))
+                    data <- data.frame(data)
+                    
+                }
+                
                 return(data)
+                
             }
         }
     })
@@ -220,8 +261,26 @@ server <- function(input, output) {
     
     # Generate a Summary statistics ----
     output$summary <- renderPrint({
-        summary(inFile()[,c(2,3)])
-    })
+        
+        if (input$data_input != 3){
+            
+            summary(inFile()[,2:3])
+        
+        } else {
+            
+            file_in <- input$file
+            
+            if (is.null(file_in)) {
+                
+                return("Click 'Browse...' to select a datafile or drop file onto 'Browse' button")
+                
+            } else {
+                
+                summary(inFile()[,2:3])
+                
+            }
+        }
+  })
 
     # Generate a Scatter plot with regression lines ----
     output$plot1 <- renderPlot(
@@ -242,7 +301,6 @@ server <- function(input, output) {
         
         model <- lm(y ~ x); coef <- coef(model)
         Deming.reg <- mcreg(x, y, method.reg = "Deming")
-        WDeming.reg <- mcreg(x, y, method.reg = "WDeming")
         PB.reg <- mcreg(x, y, method.reg = "PaBa")
         PB_large.reg <- mcreg(x, y, method.reg = "PaBaLarge")
         
@@ -333,6 +391,7 @@ server <- function(input, output) {
         }
         
         if(input$W_deming == TRUE) {
+            WDeming.reg <- mcreg(x, y, method.reg = "WDeming")
             
             p <- p +
                 geom_abline(aes(intercept = WDeming.reg@para[1], slope = WDeming.reg@para[2], 
@@ -488,6 +547,7 @@ server <- function(input, output) {
         }
         
         if(input$ols == TRUE & input$W_deming == TRUE) {
+            WDeming.reg <- mcreg(x, y, method.reg = "WDeming")
 
             p <- p +
                 geom_abline(aes(intercept = coef[1], slope = coef[2], 
@@ -611,6 +671,7 @@ server <- function(input, output) {
         }
         
         if(input$deming == TRUE & input$W_deming == TRUE) {
+            WDeming.reg <- mcreg(x, y, method.reg = "WDeming")
 
             p <- p +
                 geom_abline(aes(intercept = Deming.reg@para[1], slope = Deming.reg@para[2], 
@@ -734,6 +795,7 @@ server <- function(input, output) {
         }
         
         if(input$W_deming == TRUE & input$pb == TRUE) {
+            WDeming.reg <- mcreg(x, y, method.reg = "WDeming")
 
             p <- p +
                 geom_abline(aes(intercept = WDeming.reg@para[1], slope = WDeming.reg@para[2], 
@@ -775,6 +837,7 @@ server <- function(input, output) {
         }
         
         if(input$W_deming == TRUE & input$pb_large == TRUE) {
+            WDeming.reg <- mcreg(x, y, method.reg = "WDeming")
 
             p <- p +
                 geom_abline(aes(intercept = WDeming.reg@para[1], slope = WDeming.reg@para[2], 
@@ -857,6 +920,7 @@ server <- function(input, output) {
         }
         
         if(input$ols == TRUE & input$deming == TRUE & input$W_deming == TRUE) {
+            WDeming.reg <- mcreg(x, y, method.reg = "WDeming")
 
             p <- p +
                 geom_abline(aes(intercept = coef[1], slope = coef[2], 
@@ -989,6 +1053,7 @@ server <- function(input, output) {
         }
         
         if(input$ols == TRUE & input$W_deming == TRUE & input$pb == TRUE) {
+            WDeming.reg <- mcreg(x, y, method.reg = "WDeming")
 
             p <- p +
                 geom_abline(aes(intercept = coef[1], slope = coef[2], 
@@ -1033,6 +1098,7 @@ server <- function(input, output) {
         }
         
         if(input$ols == TRUE & input$W_deming == TRUE & input$pb_large == TRUE) {
+            WDeming.reg <- mcreg(x, y, method.reg = "WDeming")
 
             p <- p +
                 geom_abline(aes(intercept = coef[1], slope = coef[2], 
@@ -1121,6 +1187,7 @@ server <- function(input, output) {
         }
         
         if(input$deming == TRUE & input$W_deming == TRUE & input$pb == TRUE) {
+            WDeming.reg <- mcreg(x, y, method.reg = "WDeming")
 
             p <- p +
                 geom_abline(aes(intercept = Deming.reg@para[1], slope = Deming.reg@para[2], 
@@ -1165,6 +1232,7 @@ server <- function(input, output) {
         }
         
         if(input$deming == TRUE & input$W_deming == TRUE & input$pb_large == TRUE) {
+            WDeming.reg <- mcreg(x, y, method.reg = "WDeming")
 
             p <- p +
                 geom_abline(aes(intercept = Deming.reg@para[1], slope = Deming.reg@para[2], 
@@ -1253,6 +1321,7 @@ server <- function(input, output) {
         }
         
         if(input$W_deming == TRUE & input$pb == TRUE & input$pb_large == TRUE) {
+            WDeming.reg <- mcreg(x, y, method.reg = "WDeming")
 
             p <- p +
                 geom_abline(aes(intercept = WDeming.reg@para[1], slope = WDeming.reg@para[2], 
@@ -1297,6 +1366,7 @@ server <- function(input, output) {
         }
         
         if(input$ols == TRUE & input$deming == TRUE & input$W_deming == TRUE & input$pb == TRUE) {
+            WDeming.reg <- mcreg(x, y, method.reg = "WDeming")
 
             p <- p +
                 geom_abline(aes(intercept = coef[1], slope = coef[2], 
@@ -1344,6 +1414,7 @@ server <- function(input, output) {
         }
         
         if(input$ols == TRUE & input$deming == TRUE & input$W_deming == TRUE & input$pb_large == TRUE) {
+            WDeming.reg <- mcreg(x, y, method.reg = "WDeming")
 
             p <- p +
                 geom_abline(aes(intercept = coef[1], slope = coef[2], 
@@ -1438,6 +1509,7 @@ server <- function(input, output) {
         }
 
         if(input$ols == TRUE & input$W_deming == TRUE & input$pb == TRUE & input$pb_large == TRUE) {
+            WDeming.reg <- mcreg(x, y, method.reg = "WDeming")
 
             p <- p +
                 geom_abline(aes(intercept = coef[1], slope = coef[2], 
@@ -1485,6 +1557,7 @@ server <- function(input, output) {
         }
         
         if(input$deming == TRUE & input$W_deming == TRUE & input$pb == TRUE & input$pb_large == TRUE) {
+            WDeming.reg <- mcreg(x, y, method.reg = "WDeming")
 
             p <- p +
                 geom_abline(aes(intercept = Deming.reg@para[1], slope = Deming.reg@para[2], 
@@ -1532,6 +1605,7 @@ server <- function(input, output) {
         }
         
         if(input$ols == TRUE & input$deming == TRUE & input$W_deming == TRUE & input$pb == TRUE & input$pb_large == TRUE) {
+            WDeming.reg <- mcreg(x, y, method.reg = "WDeming")
 
             p <- p +
                 geom_abline(aes(intercept = coef[1], slope = coef[2], 
@@ -1588,31 +1662,39 @@ server <- function(input, output) {
     # Download a scatter plot as PDF ----
     output$downloadPlotPDF1 <- downloadHandler(
         filename <- function() {
+          
             paste("Scatter", ".pdf", sep = "")
+          
         },
         content <- function(file) {
+          
             pdf(file, width = input$plot_width/72, height = input$plot_height/72)
-            
             plot(plotdata1())
-            
             dev.off()
+            
         },
+        
         contentType = "application/pdf"
+        
     ) 
     
     # Download a scatter plot as PNG ----
     output$downloadPlotPNG1 <- downloadHandler(
         filename <- function() {
+          
             paste("Scatter", ".png", sep = "")
+          
         },
         content <- function(file) {
+          
             png(file, width = input$plot_width * 4, height = input$plot_height * 4, res = 300)
-            
             plot(plotdata1())
-            
             dev.off()
+            
         },
+        
         contentType = "application/png"
+        
     ) 
 
     # Generate a summary of the data ----
@@ -1623,7 +1705,6 @@ server <- function(input, output) {
         
         model <- lm(y ~ x); coef <- coef(model)
         Deming.reg <- mcreg(x, y, method.reg = "Deming")
-        WDeming.reg <- mcreg(x, y, method.reg = "WDeming")
         PB.reg <- mcreg(x, y, method.reg = "PaBa")
         PB_large.reg <- mcreg(x, y, method.reg = "PaBaLarge")
         
@@ -1650,6 +1731,7 @@ server <- function(input, output) {
         }
         
         if(input$W_deming == TRUE) {
+            WDeming.reg <- mcreg(x, y, method.reg = "WDeming")
             
             table <- paste0("Weighted Deming regression:",
                            "y = ",
@@ -1694,6 +1776,7 @@ server <- function(input, output) {
         }
         
         if(input$ols == TRUE & input$W_deming == TRUE) {
+            WDeming.reg <- mcreg(x, y, method.reg = "WDeming")
 
             table <- list("Least square regression: " = paste0("y = ",
                                                             round(coef[1], 3),
@@ -1736,6 +1819,7 @@ server <- function(input, output) {
         }
         
         if(input$deming == TRUE & input$W_deming == TRUE) {
+            WDeming.reg <- mcreg(x, y, method.reg = "WDeming")
 
             table <- list("Deming regression: " = paste0("y = ",
                                                       round(Deming.reg@para[1], 3),
@@ -1778,6 +1862,7 @@ server <- function(input, output) {
         }
         
         if(input$W_deming == TRUE & input$pb == TRUE) {
+            WDeming.reg <- mcreg(x, y, method.reg = "WDeming")
 
             table <- list("Weighted Deming regression: " = paste0("y = ",
                                                                round(WDeming.reg@para[1], 3),
@@ -1792,6 +1877,7 @@ server <- function(input, output) {
         }
         
         if(input$W_deming == TRUE & input$pb_large == TRUE) {
+            WDeming.reg <- mcreg(x, y, method.reg = "WDeming")
 
             table <- list("Weighted Deming regression: " = paste0("y = ",
                                                                round(WDeming.reg@para[1], 3),
@@ -1820,6 +1906,7 @@ server <- function(input, output) {
         }
         
         if(input$ols == TRUE & input$deming == TRUE & input$W_deming == TRUE) {
+            WDeming.reg <- mcreg(x, y, method.reg = "WDeming")
 
             table <- list("Least square regression: " = paste0("y = ",
                                                             round(coef[1], 3),
@@ -1877,6 +1964,7 @@ server <- function(input, output) {
         }
 
         if(input$ols == TRUE & input$W_deming == TRUE & input$pb == TRUE) {
+            WDeming.reg <- mcreg(x, y, method.reg = "WDeming")
 
             table <- list("Least square regression: " = paste0("y = ",
                                                               round(coef[1], 3),
@@ -1896,6 +1984,7 @@ server <- function(input, output) {
         }
         
         if(input$ols == TRUE & input$W_deming == TRUE & input$pb_large == TRUE) {
+            WDeming.reg <- mcreg(x, y, method.reg = "WDeming")
 
             table <- list("Least square regression: " = paste0("y = ",
                                                               round(coef[1], 3),
@@ -1934,6 +2023,7 @@ server <- function(input, output) {
         }
         
         if(input$deming == TRUE & input$W_deming == TRUE & input$pb == TRUE) {
+            WDeming.reg <- mcreg(x, y, method.reg = "WDeming")
 
             table <- list("Deming regression: " = paste0("y = ",
                                                         round(Deming.reg@para[1], 3),
@@ -1953,6 +2043,7 @@ server <- function(input, output) {
         }
         
         if(input$deming == TRUE & input$W_deming == TRUE & input$pb_large == TRUE) {
+            WDeming.reg <- mcreg(x, y, method.reg = "WDeming")
 
             table <- list("Deming regression: " = paste0("y = ",
                                                         round(Deming.reg@para[1], 3),
@@ -1991,6 +2082,7 @@ server <- function(input, output) {
         }
         
         if(input$W_deming == TRUE & input$pb == TRUE & input$pb_large == TRUE) {
+            WDeming.reg <- mcreg(x, y, method.reg = "WDeming")
 
             table <- list("Weighted Deming regression: " = paste0("y = ",
                                                                  round(WDeming.reg@para[1], 3),
@@ -2010,6 +2102,7 @@ server <- function(input, output) {
         }
         
         if(input$ols == TRUE & input$deming == TRUE & input$W_deming == TRUE & input$pb == TRUE) {
+            WDeming.reg <- mcreg(x, y, method.reg = "WDeming")
 
             table <- list("Least square regression: " = paste0("y = ",
                                                               round(coef[1], 3),
@@ -2034,6 +2127,7 @@ server <- function(input, output) {
         }
         
         if(input$ols == TRUE & input$deming == TRUE & input$W_deming == TRUE & input$pb_large == TRUE) {
+            WDeming.reg <- mcreg(x, y, method.reg = "WDeming")
 
             table <- list("Least square regression: " = paste0("y = ",
                                                               round(coef[1], 3),
@@ -2082,6 +2176,7 @@ server <- function(input, output) {
         }
         
         if(input$ols == TRUE & input$W_deming == TRUE & input$pb == TRUE & input$pb_large == TRUE) {
+            WDeming.reg <- mcreg(x, y, method.reg = "WDeming")
 
             table <- list("Least square regression: " = paste0("y = ",
                                                               round(coef[1], 3),
@@ -2106,6 +2201,7 @@ server <- function(input, output) {
         }
         
         if(input$deming == TRUE & input$W_deming == TRUE & input$pb == TRUE & input$pb_large == TRUE) {
+            WDeming.reg <- mcreg(x, y, method.reg = "WDeming")
 
             table <- list("Deming regression: " = paste0("y = ",
                                                         round(Deming.reg@para[1], 3),
@@ -2130,6 +2226,7 @@ server <- function(input, output) {
         }
         
         if(input$ols == TRUE & input$deming == TRUE & input$W_deming == TRUE & input$pb == TRUE & input$pb_large == TRUE) {
+            WDeming.reg <- mcreg(x, y, method.reg = "WDeming")
 
             table <- list("Least square regression: " = paste0("y = ",
                                                               round(coef[1], 3),
@@ -2299,6 +2396,81 @@ server <- function(input, output) {
             } 
         }
         
+        if (input$plot_type == 4 & input$stats == 1) {
+          
+          cv <- (abs(x - y) / sqrt(2)) / ((x + y) / 2) * 100
+          mean_cv <- mean(cv)
+          lower <- mean(cv) - 1.96 * sd(cv)
+          upper <- mean(cv) + 1.96 * sd(cv)
+          
+          if (lower <= 0){
+            
+            p <- ggplot(inFile(), aes(x = (x + y) / 2, y = (abs(x - y) / sqrt(2)) / ((x + y) / 2) * 100)) +
+              geom_point(size = input$pointSize1,
+                         alpha = input$alphaInput1, color = "#000000") +
+              geom_hline(yintercept = mean_cv) +
+              geom_hline(yintercept = lower, color = "#696969", 
+                         linetype = "dashed") +
+              geom_hline(yintercept = upper, color = "#696969", 
+                         linetype = "dashed") +
+              scale_y_continuous(limits = c(0, NA)) +
+              theme_bw() +
+              labs(x = input$lab_x1, y = "%CV") +
+              theme(axis.title = element_text(size = input$title_sz1),
+                    axis.text = element_text(size = input$label_sz1))
+            
+          } else if (upper >= 100) {
+            
+            p <- ggplot(inFile(), aes(x = (x + y) / 2, y = (abs(x - y) / sqrt(2)) / ((x + y) / 2) * 100)) +
+              geom_point(size = input$pointSize1,
+                         alpha = input$alphaInput1, color = "#000000") +
+              geom_hline(yintercept = mean_cv) +
+              geom_hline(yintercept = lower, color = "#696969", 
+                         linetype = "dashed") +
+              geom_hline(yintercept = upper, color = "#696969", 
+                         linetype = "dashed") +
+              scale_y_continuous(limits = c(NA, 100)) +
+              theme_bw() +
+              labs(x = input$lab_x1, y = "%CV") +
+              theme(axis.title = element_text(size = input$title_sz1),
+                    axis.text = element_text(size = input$label_sz1))
+            
+          } else {
+            
+            p <- ggplot(inFile(), aes(x = (x + y) / 2, y = (abs(x - y) / sqrt(2)) / ((x + y) / 2) * 100)) +
+              geom_point(size = input$pointSize1,
+                         alpha = input$alphaInput1, color = "#000000") +
+              geom_hline(yintercept = mean_cv) +
+              geom_hline(yintercept = lower, color = "#696969", 
+                         linetype = "dashed") +
+              geom_hline(yintercept = upper, color = "#696969", 
+                         linetype = "dashed") +
+              theme_bw() +
+              labs(x = input$lab_x1, y = "%CV") +
+              theme(axis.title = element_text(size = input$title_sz1),
+                    axis.text = element_text(size = input$label_sz1))
+          }
+          
+          if(input$change_limits3 == TRUE) {
+            
+            p <- p +
+              scale_x_continuous(limits = c(input$xlim_lower2, input$xlim_upper2))
+          } 
+          
+          if(input$change_limits4 == TRUE) {
+            
+            p <- p +
+              scale_y_continuous(limits = c(input$ylim_lower2, input$ylim_upper2))
+          }
+          
+          if(input$change_limits3 == TRUE & input$change_limits4 == TRUE) {
+            
+            p <- p +
+              scale_x_continuous(limits = c(input$xlim_lower2, input$xlim_upper2)) +
+              scale_y_continuous(limits = c(input$ylim_lower2, input$ylim_upper2))
+          } 
+        }
+        
         if (input$plot_type == 1 & input$stats == 2) {
             
             D <- x - y
@@ -2419,6 +2591,81 @@ server <- function(input, output) {
             }
         }
         
+        if (input$plot_type == 4 & input$stats == 2) {
+          
+          cv <- (abs(x - y) / sqrt(2)) / ((x + y) / 2) * 100
+          med_cv <- median(cv)
+          upper <- median(cv) + 10
+          lower <- median(cv) - 10
+          
+          if (lower <= 0){
+            
+            p <- ggplot(inFile(), aes(x = (x + y) / 2, y = (abs(x - y) / sqrt(2)) / ((x + y) / 2) * 100)) +
+              geom_point(size = input$pointSize1,
+                         alpha = input$alphaInput1, color = "#000000") +
+              geom_hline(yintercept = med_cv) +
+              geom_hline(yintercept = lower, color = "#696969", 
+                         linetype = "dashed") +
+              geom_hline(yintercept = upper, color = "#696969", 
+                         linetype = "dashed") +
+              scale_y_continuous(limits = c(0, NA)) +
+              theme_bw() +
+              labs(x = input$lab_x1, y = "%CV") +
+              theme(axis.title = element_text(size = input$title_sz1),
+                    axis.text = element_text(size = input$label_sz1))
+            
+          } else if (upper >= 100) {
+            
+            p <- ggplot(inFile(), aes(x = (x + y) / 2, y = (abs(x - y) / sqrt(2)) / ((x + y) / 2) * 100)) +
+              geom_point(size = input$pointSize1,
+                         alpha = input$alphaInput1, color = "#000000") +
+              geom_hline(yintercept = med_cv) +
+              geom_hline(yintercept = lower, color = "#696969", 
+                         linetype = "dashed") +
+              geom_hline(yintercept = upper, color = "#696969", 
+                         linetype = "dashed") +
+              scale_y_continuous(limits = c(NA, 100)) +
+              theme_bw() +
+              labs(x = input$lab_x1, y = "%CV") +
+              theme(axis.title = element_text(size = input$title_sz1),
+                    axis.text = element_text(size = input$label_sz1))
+
+          } else {
+            
+            p <- ggplot(inFile(), aes(x = (x + y) / 2, y = (abs(x - y) / sqrt(2)) / ((x + y) / 2) * 100)) +
+              geom_point(size = input$pointSize1,
+                         alpha = input$alphaInput1, color = "#000000") +
+              geom_hline(yintercept = med_cv) +
+              geom_hline(yintercept = lower, color = "#696969", 
+                         linetype = "dashed") +
+              geom_hline(yintercept = upper, color = "#696969", 
+                         linetype = "dashed") +
+              theme_bw() +
+              labs(x = input$lab_x1, y = "%CV") +
+              theme(axis.title = element_text(size = input$title_sz1),
+                    axis.text = element_text(size = input$label_sz1))
+          }
+          
+          if(input$change_limits3 == TRUE) {
+            
+            p <- p +
+              scale_x_continuous(limits = c(input$xlim_lower2, input$xlim_upper2))
+          } 
+          
+          if(input$change_limits4 == TRUE) {
+            
+            p <- p +
+              scale_y_continuous(limits = c(input$ylim_lower2, input$ylim_upper2))
+          }
+          
+          if(input$change_limits3 == TRUE & input$change_limits4 == TRUE) {
+            
+            p <- p +
+              scale_x_continuous(limits = c(input$xlim_lower2, input$xlim_upper2)) +
+              scale_y_continuous(limits = c(input$ylim_lower2, input$ylim_upper2))
+          } 
+        }
+        
         p
         
     })
@@ -2426,31 +2673,39 @@ server <- function(input, output) {
     # Download a BA plot as PDF ----
     output$downloadPlotPDF2 <- downloadHandler(
         filename <- function() {
+          
             paste("BAplot", ".pdf", sep = "")
+          
         },
         content <- function(file) {
+          
             pdf(file, width = input$plot_width/72, height = input$plot_height/72)
-            
             plot(plotdata2())
-            
             dev.off()
+            
         },
+        
         contentType = "application/pdf"
+        
     ) 
     
     # Download a BA plot as PNG ----
     output$downloadPlotPNG2 <- downloadHandler(
         filename <- function() {
+          
             paste("BAplot", ".png", sep = "")
+          
         },
         content <- function(file) {
+          
             png(file, width = input$plot_width * 4, height = input$plot_height * 4, res = 300)
-            
             plot(plotdata2())
-            
             dev.off()
+            
         },
+        
         contentType = "application/png"
+        
     ) 
     
     # Generate a summary of the data ----
@@ -2495,6 +2750,34 @@ server <- function(input, output) {
                           "Lower limit of agreement" = round(lower, 3))
         }
         
+        if(input$plot_type == 4 & input$stats == 1) {
+          
+          cv <- (abs(x - y) / sqrt(2)) / ((x + y) / 2) * 100
+          mean_cv <- mean(cv)
+          lower <- mean(cv) - 1.96 * sd(cv)
+          upper <- mean(cv) + 1.96 * sd(cv)
+          
+          if (lower <= 0) {
+            
+            table <- list("%CV mean" = round(mean_cv, 3),
+                          "Upper limit of agreement" = round(upper, 3),
+                          "Lower limit of agreement" = 0)
+            
+          } else if (upper >= 100) {
+            
+            table <- list("%CV mean" = round(mean_cv, 3),
+                          "Upper limit of agreement" = 100,
+                          "Lower limit of agreement" = round(lower, 3))
+            
+          } else {
+            
+            table <- list("%CV mean" = round(mean_cv, 3),
+                          "Upper limit of agreement" = round(upper, 3),
+                          "Lower limit of agreement" = round(lower, 3))
+            
+          }
+        }
+        
         if(input$plot_type == 1 & input$stats == 2) {
             
             D <- x - y
@@ -2529,6 +2812,34 @@ server <- function(input, output) {
             table <- list("Difference" = round(med_diff, 3),
                           "Upper limit of agreement" = round(upper, 3),
                           "Lower limit of agreement" = round(lower, 3))
+        }
+        
+        if(input$plot_type == 4 & input$stats == 2) {
+          
+          cv <- (abs(x - y) / sqrt(2)) / ((x + y) / 2) * 100
+          med_cv <- median(cv)
+          upper <- median(cv) + 10
+          lower <- median(cv) - 10
+          
+          if (lower <= 0) {
+            
+            table <- list("%CV median" = round(med_cv, 3),
+                          "Upper limit of agreement" = round(upper, 3),
+                          "Lower limit of agreement" = 0)
+
+          } else if (upper >= 100) {
+            
+            table <- list("%CV median" = round(med_cv, 3),
+                          "Upper limit of agreement" = 100,
+                          "Lower limit of agreement" = round(lower, 3))
+
+          } else {
+            
+            table <- list("%CV median" = round(med_cv, 3),
+                          "Upper limit of agreement" = round(upper, 3),
+                          "Lower limit of agreement" = round(lower, 3))
+
+          }
         }
         
         table
