@@ -14,7 +14,7 @@ The column of your input data should be arrigned like Example data:
 - Column 2: Value for Measurement A
 - Column 3: Value for Measurement B
 
-![screencapture-rf-epidemiol-shinyapps-io-compaRison-2022-08-24-02_09_09](https://user-images.githubusercontent.com/19466700/186287313-b51c11e7-a1cd-4244-8635-e75d2e46c5bc.png)
+![screencapture-rf-epidemiol-shinyapps-io-compaRison-2022-08-28-14_58_53](https://user-images.githubusercontent.com/19466700/187075276-48a7789e-74f9-4d46-8965-079df8e207e4.png)
 
 ## Step 2. Scatter plot with regression lines
 Please select combinations of various regression models.</br>
@@ -34,7 +34,8 @@ The graphical options are available in the left column.
 Please select plot types & assumptions about distribution of y-axis.</br>
 The graphical options are available in the left column.
 
-![screencapture-rf-epidemiol-shinyapps-io-compaRison-2022-08-24-02_08_58](https://user-images.githubusercontent.com/19466700/186287325-44f0db8a-afa1-48f7-af61-503d716c8483.png)
+![screencapture-rf-epidemiol-shinyapps-io-compaRison-2022-08-28-14_59_05](https://user-images.githubusercontent.com/19466700/187075292-c63c8b73-be9c-4868-978c-0201ad557378.png)
+
 
 ## Cautions
 - Passing-Bablok regression will take a some time compared with other two regression models. Please be patience with large N data.
