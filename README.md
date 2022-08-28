@@ -8,7 +8,7 @@ Please access the following URL to run this web app:
 https://rf-epidemiol.shinyapps.io/compaRison/
 
 ## Step 1. Import dataset
-Please prepare .xlsx, .xls, .txt or .csv dataset
+Please prepare .xlsx, .xls, .txt or .csv dataset.
 The column of your input data should be arrigned like Example data:
 - Column 1: ID/obs, etc... (Not use for plots)
 - Column 2: Value for Measurement A
